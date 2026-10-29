@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eemkit"
+dynamic = ["version"]
+description = "Excitation-emission matrix (EEM) processing and PARAFAC modelling of dissolved organic matter fluorescence"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "xarray>=2023.1",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov", "ruff", "scipy"]
+
+[tool.hatch.version]
+path = "src/eemkit/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eemkit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "realdata: needs the real dataset; set EEMKIT_TEST_DATA to its root folder",
+]
+filterwarnings = ["error::eemkit.errors.EEMKitWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "NPY"]
