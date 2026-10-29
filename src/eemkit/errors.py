@@ -21,5 +21,9 @@ class CorrectionError(EEMKitError, ValueError):
     """A correction cannot be applied: missing input, wrong order or applied twice."""
 
 
+class IndexComputationError(EEMKitError, ValueError):
+    """A fluorescence index cannot be computed with the requested settings."""
+
+
 class EEMKitWarning(UserWarning):
     """Something unusual that does not prevent processing but should be reviewed."""

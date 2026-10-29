@@ -2,7 +2,7 @@
 
 __version__ = "0.1.0.dev0"
 
-from eemkit import corrections
+from eemkit import corrections, indices
 from eemkit.core.dataset import stack
 from eemkit.core.grid import infer_common_grid, regular_grid, resample
 from eemkit.core.history import get_history
@@ -29,6 +29,7 @@ __all__ = [
     "__version__",
     "corrections",
     "get_history",
+    "indices",
     "infer_common_grid",
     "load_dataset",
     "mean_cycles",
