@@ -40,6 +40,11 @@ def with_history(ds: xr.Dataset, step: str, **params: Any) -> xr.Dataset:
     return out
 
 
+def has_step(ds: xr.Dataset | xr.DataArray, step: str) -> bool:
+    """True if ``step`` appears in the processing history of ``ds``."""
+    return any(e["step"] == step for e in get_history(ds))
+
+
 def same_history(a: list[dict], b: list[dict]) -> bool:
     """Compare two histories ignoring timestamps."""
     strip = [{k: v for k, v in e.items() if k != "time"} for e in a]

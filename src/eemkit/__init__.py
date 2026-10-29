@@ -2,10 +2,12 @@
 
 __version__ = "0.1.0.dev0"
 
+from eemkit import corrections
 from eemkit.core.dataset import stack
 from eemkit.core.grid import infer_common_grid, regular_grid, resample
 from eemkit.core.history import get_history
 from eemkit.errors import (
+    CorrectionError,
     EEMKitError,
     EEMKitWarning,
     FileFormatError,
@@ -18,12 +20,14 @@ from eemkit.io.loader import load_dataset
 from eemkit.io.pairing import read_pairing
 
 __all__ = [
+    "CorrectionError",
     "EEMKitError",
     "EEMKitWarning",
     "FileFormatError",
     "GridError",
     "PairingError",
     "__version__",
+    "corrections",
     "get_history",
     "infer_common_grid",
     "load_dataset",

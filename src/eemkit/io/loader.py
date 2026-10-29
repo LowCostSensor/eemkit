@@ -140,6 +140,9 @@ def load_dataset(
     ds = ds.assign_coords(meta)
     ds.attrs["pairing_source"] = table.attrs.get("source", "")
     ds.attrs["data_root"] = str(root)
+    ds.attrs["spectral_correction"] = (
+        "instrument ('Corrected spectra' ON)"
+        if str(ds.attrs.get("eem_corrected_spectra", "")).upper() == "ON" else "none")
     ds.attrs[HISTORY_ATTR] = json.dumps(history + [make_entry("load_dataset", **params)])
     return ds
 
