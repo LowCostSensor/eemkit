@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pytest-cov", "ruff"]
+dev = ["pytest>=7", "pytest-cov", "ruff", "tensorly"]  # tensorly: independent cross-check
 
 [tool.hatch.version]
 path = "src/eemkit/__init__.py"
