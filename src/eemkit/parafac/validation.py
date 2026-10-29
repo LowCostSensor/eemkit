@@ -51,18 +51,20 @@ def split_half(
     *,
     groups: np.ndarray | None = None,
     stratify: str | None = None,
-    random_state: int = 0,
+    split_random_state: int = 0,
     threshold: float = 0.95,
     **fit_kwargs,
 ) -> xr.Dataset:
     """Run the S4C6T3 split-half validation for one rank.
 
+    ``split_random_state`` seeds the division into groups; ``fit_kwargs``
+    (including ``random_state``) go to :func:`fit_parafac` for every half.
     Returns a dataset with ``tcc_ex`` and ``tcc_em`` (test, component), the
     half-model loadings (half, ex|em, component, aligned to the first half of
     each test), ``groups(sample)`` and attrs ``validated`` and ``min_tcc``.
     """
     if groups is None:
-        groups = split_groups(ds, random_state=random_state, stratify=stratify)
+        groups = split_groups(ds, random_state=split_random_state, stratify=stratify)
     halves = {}
     for g1, g2 in PAIRS:
         for g in (g1, g2):
@@ -103,7 +105,7 @@ def split_half(
     )
     out.attrs = {"rank": rank, "threshold": threshold, "min_tcc": min_tcc,
                  "validated": int(min_tcc >= threshold), "design": "S4C6T3",
-                 "stratify": str(stratify), "random_state": random_state,
+                 "stratify": str(stratify), "split_random_state": split_random_state,
                  "half_explained_pct": json.dumps(
                      {k: round(m.attrs["explained_variance_pct"], 3) for k, m in halves.items()})}
     return out
