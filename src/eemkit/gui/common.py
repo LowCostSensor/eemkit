@@ -93,8 +93,10 @@ class DataFrameModel(QAbstractTableModel):
             return None
         if orientation == Qt.Horizontal:
             return str(self._df.columns[section])
-        return str(self._df.index[section]) if not isinstance(self._df.index, pd.RangeIndex) \
-            else str(section + 1)
+        idx = self._df.index
+        plain = isinstance(idx, pd.RangeIndex) and idx.start == 0 and idx.step == 1 \
+            and idx.name is None
+        return str(section + 1) if plain else str(idx[section])  # e.g. ranks 2, 3, 4
 
     def flags(self, index):
         f = super().flags(index)
