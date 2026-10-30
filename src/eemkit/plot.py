@@ -215,12 +215,13 @@ def rank_diagnostics(table: pd.DataFrame, *, threshold: float = 0.95,
                      chosen: int | None = None, width: float = DOUBLE_COLUMN):
     """Explained variance, core consistency and split-half congruence against rank.
 
-    ``table`` is indexed by rank with columns ``explained_variance_pct``,
+    ``table`` is indexed by rank with columns ``explained_pct``,
     ``core_consistency_pct`` and ``split_half_min_tcc`` (as written by
-    :func:`eemkit.parafac.summary_table` plus the split-half results). One
-    panel per measure: no shared y-axis between different quantities.
+    :func:`eemkit.parafac.summary_table` plus the split-half results, e.g.
+    :func:`eemkit.pipeline.explore`). One panel per measure: no shared
+    y-axis between different quantities.
     """
-    cols = [("explained_variance_pct", "Explained variance (%)"),
+    cols = [("explained_pct", "Explained variance (%)"),
             ("core_consistency_pct", "Core consistency (%)"),
             ("split_half_min_tcc", "Split-half min. Tucker congruence")]
     ranks = table.index.values

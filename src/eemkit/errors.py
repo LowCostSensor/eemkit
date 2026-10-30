@@ -25,5 +25,13 @@ class IndexComputationError(EEMKitError, ValueError):
     """A fluorescence index cannot be computed with the requested settings."""
 
 
+class SettingsError(EEMKitError, ValueError):
+    """A processing setting is missing or invalid (e.g. no cuvette path length)."""
+
+
+class Cancelled(EEMKitError):
+    """A long computation was cancelled by the caller."""
+
+
 class EEMKitWarning(UserWarning):
     """Something unusual that does not prevent processing but should be reviewed."""

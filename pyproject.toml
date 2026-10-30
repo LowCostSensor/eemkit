@@ -22,7 +22,12 @@ classifiers = [
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
-dev = ["pytest>=7", "pytest-cov", "ruff", "tensorly", "matplotlib>=3.8"]  # tensorly: independent cross-check
+gui = ["matplotlib>=3.8", "PySide6>=6.6"]
+dev = ["pytest>=7", "pytest-cov", "pytest-qt", "ruff", "tensorly", "matplotlib>=3.8",
+       "PySide6>=6.6"]  # tensorly: independent cross-check
+
+[project.gui-scripts]
+eemkit-gui = "eemkit.gui:main"
 
 [tool.hatch.version]
 path = "src/eemkit/__init__.py"

@@ -46,7 +46,7 @@ def test_components_draw_split_half_halves(fitted):
 
 
 def test_rank_diagnostics_uses_one_axis_per_measure():
-    table = pd.DataFrame({"explained_variance_pct": [97.0, 99.0, 99.3],
+    table = pd.DataFrame({"explained_pct": [97.0, 99.0, 99.3],
                           "core_consistency_pct": [99.0, 85.0, -400.0],
                           "split_half_min_tcc": [0.99, 0.99, 0.2]}, index=[2, 3, 4])
     fig = plot.rank_diagnostics(table, chosen=3)
