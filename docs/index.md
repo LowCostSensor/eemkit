@@ -21,14 +21,25 @@ step recorded so that an analysis can be repeated exactly.
 
 ## Install
 
+You need Python 3.11 or later (on Windows, tick *Add python.exe to PATH* when
+installing it). eemkit is not on PyPI yet, so install it from GitHub; the
+`[gui]` part adds the desktop application and the figures:
+
 ```bash
-pip install eemkit            # library
-pip install "eemkit[plot]"    # + figures (matplotlib)
-pip install "eemkit[gui]"     # + desktop application
+python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
 ```
 
-Python 3.11 or later. A stand-alone Windows build of the application is
-attached to each [release](https://github.com/LowCostSensor/eemkit/releases).
+Then start the application with:
+
+```bash
+python -m eemkit.gui
+```
+
+For the library alone, leave out `[gui]` (or use `[plot]` for figures
+without the application). Once eemkit is on PyPI this becomes
+`pip install "eemkit[gui]"`. A stand-alone Windows build of the application,
+which needs no Python, will be attached to each
+[release](https://github.com/LowCostSensor/eemkit/releases).
 
 ## Where to start
 

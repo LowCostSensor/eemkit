@@ -12,12 +12,19 @@ Labels in this guide are written as they appear on screen, for example `Apply co
 
 ### From Python
 
+Install Python 3.11 or later (on Windows, tick *Add python.exe to PATH* in the
+installer), then, in a terminal (on Windows: *PowerShell* from the Start
+menu):
+
 ```bash
-pip install "eemkit[gui]"
-eemkit-gui
+python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m eemkit.gui
 ```
 
-To open a project directly, pass the file as an argument:
+The first command installs eemkit from GitHub (it is not on PyPI yet; then it
+will be `pip install "eemkit[gui]"`); the `[gui]` part is needed for the
+application. The second starts it. To open a project directly, pass the file
+as an argument:
 
 ```bash
 python -m eemkit.gui path/to/project.toml

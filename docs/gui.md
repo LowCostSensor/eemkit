@@ -1,9 +1,13 @@
 # Desktop application
 
+```bash
+python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m eemkit.gui       # optionally followed by a project.toml
 ```
-pip install eemkit[gui]
-eemkit-gui                 # or: python -m eemkit.gui [project.toml]
-```
+
+(Until eemkit is on PyPI; then `pip install "eemkit[gui]"`.) The
+`eemkit-gui` command does the same as `python -m eemkit.gui` when Python's
+`Scripts` folder is on the PATH.
 
 The application is a front end to `eemkit.pipeline`: it does no processing
 of its own. Its project file is the pipeline's settings TOML, so an analysis
@@ -61,7 +65,8 @@ scale for print. The choice is saved in the project file.
 without a Python installation:
 
 ```
-pip install eemkit[gui] pyinstaller
+git clone https://github.com/LowCostSensor/eemkit && cd eemkit
+pip install ".[gui]" pyinstaller
 pyinstaller packaging/eemkit-gui.spec --noconfirm
 ```
 
