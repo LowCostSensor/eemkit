@@ -35,3 +35,21 @@ Samples lacking an input (blank, absorbance) make a correction fail unless
 `apply_spectral_correction` is used. Without it, Raman-normalised intensities
 are consistent within one instrument but not comparable with other studies;
 reports should say so.
+
+```python
+ds = C.apply_spectral_correction(ds, ex_factors="ex_corr.csv", em_factors="em_corr.csv")
+```
+
+Factor files have two columns, wavelength (nm) and factor; header lines and
+`,` `;` tab or space separators are accepted. They must cover the whole
+excitation and emission range of the EEMs (no extrapolation) and be positive.
+With `convention="multiply"` (default) the files hold correction factors;
+with `convention="divide"` they hold an instrument response (e.g. a reference
+spectrum) and the EEMs are divided by it. The multipliers actually applied are
+stored as `spectral_correction_ex` and `spectral_correction_em`. Data recorded
+with the Cary Eclipse's own "Corrected spectra" ON are refused, so a
+correction is never applied twice. eemkit ships no factors: they belong to
+one instrument and must be measured.
+
+In `eemkit.pipeline` the `[spectral]` section (`ex_factors`, `em_factors`,
+`convention`) switches the step on; paths are relative to the settings file.

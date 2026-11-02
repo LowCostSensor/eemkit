@@ -338,6 +338,10 @@ class ParafacTab(QWidget):
         if what in ("final", "corrected") and self.project.model is None:
             self.final_plot.clear("Fit the final model.")
             self.final_text.setText("")
+        if what == "display":
+            self.draw_loadings()
+            if self.project.model is not None:
+                self.show_final()
 
     def show_exploration(self) -> None:
         ex = self.project.exploration
@@ -365,7 +369,8 @@ class ParafacTab(QWidget):
         if ex is None or not self.load_rank.currentText():
             return
         r = int(self.load_rank.currentText())
-        self.load_plot.show_figure(plot.components(ex.models[r], ex.splits[r], width=8.0))
+        self.load_plot.show_figure(plot.components(ex.models[r], ex.splits[r], width=8.0,
+                                                   cmap=self.project.eem_colours))
 
     def draw_outliers(self) -> None:
         ex = self.project.exploration
@@ -390,4 +395,5 @@ class ParafacTab(QWidget):
             f"{a['explained_variance_pct']:.3f} %, core consistency {a['core_consistency_pct']:.1f}"
             f" %, {a['n_init_at_best_minimum']}/{a['n_init']} starts at the best minimum. "
             f"Split-half minimum Tucker congruence {sh.attrs['min_tcc']:.4f}: {verdict}.")
-        self.final_plot.show_figure(plot.components(m, sh, width=8.0))
+        self.final_plot.show_figure(plot.components(m, sh, width=8.0,
+                                                    cmap=self.project.eem_colours))

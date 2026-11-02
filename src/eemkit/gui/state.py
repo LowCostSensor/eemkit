@@ -11,6 +11,9 @@ from PySide6.QtCore import QObject, Signal
 from eemkit import pipeline
 
 STAGES = ("pairing", "raw", "corrected", "indices", "exploration", "final")
+#: Settings that hold file paths, as (section, key).
+PATH_SETTINGS = (("project", "data_root"), ("project", "pairing"), ("project", "output_dir"),
+                 ("spectral", "ex_factors"), ("spectral", "em_factors"))
 
 
 class Project(QObject):
@@ -21,7 +24,7 @@ class Project(QObject):
     or data that are no longer current.
     """
 
-    changed = Signal(str)  # one of STAGES, or "settings"
+    changed = Signal(str)  # one of STAGES, "settings", or "display" (redraw only)
 
     def __init__(self):
         super().__init__()
@@ -45,8 +48,8 @@ class Project(QObject):
         """Folder relative paths in the settings are resolved against."""
         return self.path.parent if self.path else Path.cwd()
 
-    def resolve(self, key: str) -> Path | None:
-        v = self.settings["project"].get(key, "")
+    def resolve(self, key: str, section: str = "project") -> Path | None:
+        v = self.settings[section].get(key, "")
         if not v:
             return None
         p = Path(v)
@@ -57,15 +60,21 @@ class Project(QObject):
         root = self.resolve("data_root")
         return root is not None and Path(path).resolve().is_relative_to(root.resolve())
 
-    def set_path_setting(self, key: str, path: str | Path) -> None:
-        """Store ``path`` relative to the project file when it lies below it."""
+    def relative(self, path: str | Path) -> str:
+        """``path`` relative to the project file when it lies below it; '' stays ''."""
+        if not str(path):
+            return ""
         p = Path(path)
         if self.path is not None:
             try:
                 p = p.resolve().relative_to(self.base.resolve())
             except ValueError:
                 pass
-        self.settings["project"][key] = p.as_posix() if str(p) else ""
+        return p.as_posix()
+
+    def set_path_setting(self, key: str, path: str | Path, section: str = "project") -> None:
+        """Store ``path`` relative to the project file when it lies below it."""
+        self.settings[section][key] = self.relative(path)
         self.dirty = True
 
     # invalidation ------------------------------------------------------- #
@@ -98,16 +107,27 @@ class Project(QObject):
         if invalidates:
             self.invalidate(invalidates)
 
+    @property
+    def eem_colours(self) -> str:
+        """Name of the EEM colour map (a key of :data:`eemkit.plot.COLORMAPS`)."""
+        return self.settings["display"]["eem_colours"]
+
+    def set_eem_colours(self, name: str) -> None:
+        if name != self.eem_colours:
+            self.set_settings("display", {"eem_colours": name}, None)
+            self.changed.emit("display")
+
     # files -------------------------------------------------------------- #
 
     def save(self, path: str | Path | None = None) -> Path:
         if path is not None:
             old_base = self.base
             self.path = Path(path)
-            for key in ("data_root", "pairing", "output_dir"):
-                v = self.settings["project"].get(key, "")
-                if v and not Path(v).is_absolute():
-                    self.set_path_setting(key, old_base / v)
+            for section, key in PATH_SETTINGS:  # re-express paths against the new folder
+                v = self.settings[section].get(key, "")
+                if v:
+                    self.set_path_setting(key, v if Path(v).is_absolute() else old_base / v,
+                                          section)
         if self.path is None:
             raise ValueError("no project file chosen")
         pipeline.save_settings(self.settings, self.path)
@@ -121,3 +141,4 @@ class Project(QObject):
         self.invalidate("pairing")
         self.dirty = False
         self.changed.emit("settings")
+        self.changed.emit("display")

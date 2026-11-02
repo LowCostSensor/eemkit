@@ -127,6 +127,49 @@ def test_full_workflow(qtbot, window, dialogs, tmp_path):
     assert len(other.project.pairing) == 8
 
 
+def test_spectral_correction_and_eem_colours(qtbot, window, dialogs, tmp_path):
+    w, p, t = window, window.project, window.corrections_tab
+    data = make_project(tmp_path)
+    p.set_path_setting("data_root", data)
+    p.set_path_setting("pairing", tmp_path / "pairing.csv")
+    p.changed.emit("settings")
+    w.project_tab.scan()
+    _idle(qtbot, w)
+    w.project_tab.suggest()
+    w.project_tab.pairing_view.selectAll()
+    w.project_tab.set_include(True)
+    w.project_tab.load_data()
+    _idle(qtbot, w)
+
+    # default colours are the Cary Eclipse ones; the View menu switches them
+    assert p.eem_colours == "eclipse" and w.colour_actions["eclipse"].isChecked()
+    w.colour_actions["blues"].trigger()
+    assert p.eem_colours == "blues" and p.dirty
+
+    ex, em = tmp_path / "ex.txt", tmp_path / "em.txt"
+    ex.write_text("200 2\n500 2\n", encoding="utf-8")
+    em.write_text("200 1\n700 3\n", encoding="utf-8")
+    t.l_abs.setText("1")
+    t.l_fl.setText("1")
+    t.set_factor_file("ex_factors", str(ex))
+    t.apply()  # only one file: refused
+    assert dialogs[-1][0] == "information" and "both" in dialogs[-1][1]
+    t.set_factor_file("em_factors", str(em))
+    assert "2 values, 200-700 nm" in t.factor_info["em_factors"].text()
+    t.apply()
+    _idle(qtbot, w)
+    assert "applied" in p.after_raman.attrs["spectral_correction"]
+    assert "applied" in t.summary.text()
+    t.stage.setCurrentText("Spectral correction factors")
+    assert t.plot.figure is not None
+
+    # factor files are stored relative to the project file and survive reopening
+    p.save(tmp_path / "project.toml")
+    back = pipeline.load_settings(tmp_path / "project.toml")
+    assert back["spectral"]["ex_factors"] == "ex.txt"
+    assert back["display"]["eem_colours"] == "blues"
+
+
 def test_changing_settings_drops_dependent_results(qtbot, window, tmp_path):
     p = window.project
     p.exploration, p.model = object(), object()

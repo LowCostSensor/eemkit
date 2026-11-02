@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QTabWidget
 
 from eemkit import __version__
@@ -25,6 +25,10 @@ Every result can be reproduced from the saved project file with
 Methods: inner filter, Kothawala et al. 2013; Raman units, Lawaetz &amp; Stedmon 2009;
 PARAFAC and split-half validation, Murphy et al. 2013; core consistency,
 Bro &amp; Kiers 2003."""
+
+#: Choices of the View > EEM colours menu (names of eemkit.plot.COLORMAPS).
+EEM_COLOURS = {"eclipse": "Cary Eclipse (violet, blue, green, yellow, red)",
+               "blues": "Single-hue blue (perceptually ordered, for print)"}
 
 
 class MainWindow(QMainWindow):
@@ -68,10 +72,27 @@ class MainWindow(QMainWindow):
             act.setShortcut(key)
             act.triggered.connect(slot)
             m.addAction(act)
+        v = self.menuBar().addMenu("&View").addMenu("&EEM colours")
+        group = QActionGroup(self)
+        self.colour_actions = {}
+        for name, text in EEM_COLOURS.items():
+            act = QAction(text, self, checkable=True)
+            act.triggered.connect(lambda _, n=name: self.project.set_eem_colours(n))
+            group.addAction(act)
+            v.addAction(act)
+            self.colour_actions[name] = act
+        self.project.changed.connect(self._sync_colours)
+        self._sync_colours("display")
         h = self.menuBar().addMenu("&Help")
         act = QAction("&About eemkit", self)
         act.triggered.connect(self.about)
         h.addAction(act)
+
+    def _sync_colours(self, what: str) -> None:
+        if what in ("settings", "display"):
+            act = self.colour_actions.get(self.project.eem_colours)
+            if act is not None:
+                act.setChecked(True)
 
     def _title(self) -> None:
         name = self.project.path.name if self.project.path else "untitled project"
@@ -93,6 +114,7 @@ class MainWindow(QMainWindow):
             self.project.__init__()  # reset in place: the tabs keep their reference
             self.project.invalidate("pairing")
             self.project.changed.emit("settings")
+            self.project.changed.emit("display")
 
     def open_dialog(self) -> None:
         if not self._confirm_discard():

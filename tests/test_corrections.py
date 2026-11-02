@@ -243,6 +243,24 @@ def test_spectral_correction_coverage_and_order(write):
                                     em_factors=full)
 
 
+def test_spectral_correction_divide_and_checks():
+    ex = (np.array([200.0, 500.0]), np.array([0.5, 0.5]))
+    em = (np.array([200.0, 700.0]), np.array([0.25, 0.25]))
+    ds = make_ds()
+    out = C.apply_spectral_correction(ds, ex_factors=ex, em_factors=em, convention="divide")
+    np.testing.assert_allclose(out["intensity"], ds["intensity"] * 2 * 4)
+    np.testing.assert_allclose(out["spectral_correction_em"], 4.0)  # multipliers applied
+    assert "divide" in C.spectral_correction_status(out)
+    with pytest.raises(CorrectionError, match="positive"):
+        C.apply_spectral_correction(ds, ex_factors=(ex[0], np.array([1.0, -1.0])), em_factors=em)
+    with pytest.raises(ValueError, match="convention"):
+        C.apply_spectral_correction(ds, ex_factors=ex, em_factors=em, convention="inverse")
+    on = ds.copy()
+    on.attrs["spectral_correction"] = "instrument ('Corrected spectra' ON)"
+    with pytest.raises(CorrectionError, match="already spectrally corrected"):
+        C.apply_spectral_correction(on, ex_factors=ex, em_factors=em)
+
+
 def test_crop():
     out = C.crop(make_ds(), ex=(300, None), em=(None, 500))
     assert out["ex"].values.tolist() == [300, 350, 400, 450]

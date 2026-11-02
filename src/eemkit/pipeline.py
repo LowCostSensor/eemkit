@@ -1,17 +1,17 @@
 """The full processing chain, driven by one settings file.
 
 The settings are a nested dictionary, stored as TOML, with the sections
-``project``, ``inner_filter``, ``raman``, ``scatter``, ``crop``, ``indices``,
-``parafac`` (with ``split_half`` and ``final``) and ``missing``. The same file
-drives scripts and the desktop application, so every analysis can be rerun
-from the command line.
+``project``, ``spectral``, ``inner_filter``, ``raman``, ``scatter``, ``crop``,
+``indices``, ``parafac`` (with ``split_half`` and ``final``), ``missing`` and
+``display``. The same file drives scripts and the desktop application, so
+every analysis can be rerun from the command line.
 
 Steps, in the enforced order of the corrections:
 
 1. :func:`load` - read the samples included in the pairing table;
-2. :func:`correct_until_raman` - absorbance blank, inner filter, EEM blank,
-   Raman units; :func:`finish_corrections` - scatter, optional
-   interpolation, crop;
+2. :func:`correct_until_raman` - optional instrument spectral correction,
+   absorbance blank, inner filter, EEM blank, Raman units;
+   :func:`finish_corrections` - scatter, optional interpolation, crop;
 3. :func:`compute_indices` - on the Raman-normalised EEMs, before scatter
    removal;
 4. :func:`explore` - PARAFAC for a range of ranks with split-half
@@ -51,6 +51,9 @@ Progress = Callable[[str, int, int], None]
 #: Default settings. ``None`` means "no default: must be provided".
 DEFAULTS: dict = {
     "project": {"data_root": "", "pairing": "", "output_dir": ""},
+    # Instrument-specific factor files (wavelength, factor); empty = not applied.
+    # convention: "multiply" (correction factors) or "divide" (response spectra).
+    "spectral": {"ex_factors": "", "em_factors": "", "convention": "multiply"},
     # Kothawala et al. (2013): absorbance-based inner-filter correction
     "inner_filter": {"absorbance_path_length_cm": None, "fluorescence_path_length_cm": None},
     # Lawaetz & Stedmon (2009): Raman area of the blank at ex 350, em 381-426 nm
@@ -70,6 +73,8 @@ DEFAULTS: dict = {
         "final": {"rank": None, "tol": 1e-8, "max_iter": 20000, "n_init": 20},
     },
     "missing": {"policy": "error"},
+    # EEM colour map of the figures: "eclipse" (Cary Eclipse rainbow) or "blues"
+    "display": {"eem_colours": "eclipse"},
 }
 
 
@@ -142,10 +147,10 @@ def _required(settings: dict, section: str, key: str) -> float:
     return float(v)
 
 
-def _resolve(settings: dict, key: str, base: Path | None) -> Path:
-    v = settings["project"].get(key, "")
+def _resolve(settings: dict, key: str, base: Path | None, section: str = "project") -> Path:
+    v = settings[section].get(key, "")
     if not v:
-        raise SettingsError(f"project.{key} is not set")
+        raise SettingsError(f"{section}.{key} is not set")
     p = Path(v)
     return p if p.is_absolute() or base is None else base / p
 
@@ -167,11 +172,23 @@ def load(settings: dict, base: str | Path | None = None) -> xr.Dataset:
     return load_dataset(table, data_root=root)
 
 
-def correct_until_raman(ds: xr.Dataset, settings: dict) -> xr.Dataset:
-    """Absorbance blank, inner filter, EEM blank and Raman units."""
+def correct_until_raman(ds: xr.Dataset, settings: dict,
+                        base: str | Path | None = None) -> xr.Dataset:
+    """Spectral correction (if factor files are set), absorbance blank, inner
+    filter, EEM blank and Raman units. Factor files are relative to ``base``."""
     l_abs = _required(settings, "inner_filter", "absorbance_path_length_cm")
     l_fl = _required(settings, "inner_filter", "fluorescence_path_length_cm")
     missing = settings["missing"]["policy"]
+    sp = settings["spectral"]
+    files = [bool(sp.get(k)) for k in ("ex_factors", "em_factors")]
+    if any(files):
+        if not all(files):
+            raise SettingsError("spectral: set both ex_factors and em_factors, or neither")
+        base = Path(base) if base is not None else None
+        ds = C.apply_spectral_correction(
+            ds, ex_factors=_resolve(settings, "ex_factors", base, "spectral"),
+            em_factors=_resolve(settings, "em_factors", base, "spectral"),
+            convention=sp.get("convention", "multiply"))
     ds = C.subtract_absorbance_blank(ds, missing=missing)
     ds = C.correct_inner_filter(ds, absorbance_path_length_cm=l_abs,
                                 fluorescence_path_length_cm=l_fl, missing=missing)
@@ -390,7 +407,8 @@ def export_figures(out: Path, settings: dict, exploration: Exploration | None,
         written += plot.save(fig, out / "rank_diagnostics")
         plt.close(fig)
     if model is not None:
-        for name, fig in (("components", plot.components(model, split)),
+        cmap = settings.get("display", {}).get("eem_colours", "blues")
+        for name, fig in (("components", plot.components(model, split, cmap=cmap)),
                           ("leverage", plot.leverage(model))):
             written += plot.save(fig, out / name)
             plt.close(fig)

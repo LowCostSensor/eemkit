@@ -185,6 +185,26 @@ def test_full_chain_recovers_components_and_exports(data_root, tmp_path):
     assert fmax.shape == (8, 2)
 
 
+def test_spectral_correction_from_settings(data_root, tmp_path):
+    s = _settings(data_root, tmp_path)
+    _write(tmp_path / "factors" / "ex.csv", "nm,factor\r\n200,2\r\n500,2\r\n")
+    _write(tmp_path / "factors" / "em.csv", "nm,factor\r\n200,3\r\n700,3\r\n")
+    s["spectral"].update(ex_factors="factors/ex.csv")  # relative to base
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        raw = pipeline.load(s)
+        with pytest.raises(SettingsError, match="both"):
+            pipeline.correct_until_raman(raw, s, base=tmp_path)
+        plain = pipeline.correct_until_raman(raw, s | {"spectral": pipeline.DEFAULTS["spectral"]})
+        s["spectral"].update(em_factors="factors/em.csv")
+        corr = pipeline.correct_until_raman(raw, s, base=tmp_path)
+    assert "applied" in corr.attrs["spectral_correction"]
+    assert plain.attrs["spectral_correction"] == "none"
+    # constant factors cancel in Raman units (sample and blank are both multiplied)
+    np.testing.assert_allclose(corr["intensity"], plain["intensity"], rtol=1e-10)
+    np.testing.assert_allclose(corr["spectral_correction_ex"], 2.0)
+
+
 def test_explore_can_be_cancelled(data_root, tmp_path):
     s = _settings(data_root, tmp_path)
     with warnings.catch_warnings():

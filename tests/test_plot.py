@@ -34,6 +34,28 @@ def test_eems_small_multiples_keep_missing_cells(fitted):
     assert matplotlib.colors.same_color(shown[0].get_facecolor(), plot.MISSING)
 
 
+def test_eem_colour_maps(fitted):
+    ds, model, _ = fitted
+    fig, ax = plt.subplots()
+    cs = plot.eem(ax, ds.intensity.isel(sample=0), cmap="eclipse")
+    assert cs.cmap is plot.ECLIPSE
+    lo, hi = plot.ECLIPSE(0.0), plot.ECLIPSE(1.0)
+    assert lo[2] > lo[1] and hi[0] > 0.8 > hi[2]  # violet at the bottom, red at the top
+    fig = plot.components(model, cmap="eclipse")
+    assert fig.axes[0].collections[0].cmap is plot.ECLIPSE
+    with pytest.raises(ValueError, match="colour map"):
+        plot.eem(ax, ds.intensity.isel(sample=0), cmap="jet!")
+
+
+def test_spectral_factors_plot():
+    import xarray as xr
+    ds = xr.Dataset({"spectral_correction_ex": ("ex", [1.0, 1.2]),
+                     "spectral_correction_em": ("em", [1.0, 0.9, 0.8])},
+                    coords={"ex": [250.0, 300.0], "em": [300.0, 350.0, 400.0]})
+    fig = plot.spectral_factors(ds)
+    assert len(fig.axes[0].lines) == 2
+
+
 def test_components_draw_split_half_halves(fitted):
     _, model, split = fitted
     fig = plot.components(model, split, names=["A", "B", "C"])

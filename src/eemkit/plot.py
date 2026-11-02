@@ -4,10 +4,13 @@ Install with ``pip install eemkit[plot]``. Every function draws on matplotlib
 axes and returns the figure, so figures can be adjusted before saving;
 :func:`save` writes a vector PDF and a 300 dpi PNG side by side.
 
-Colour rules: EEM intensities use one sequential hue (light = low); groups and
-components use a fixed categorical order (:data:`CATEGORICAL`) and also differ
-in marker or line style, so identity never relies on colour alone. Missing
-cells (removed scatter) are shown in light grey.
+Colour rules: EEM intensities use one sequential hue by default (light = low,
+:data:`SEQUENTIAL`); ``cmap="eclipse"`` gives instead the violet-to-red
+rainbow of the Cary Eclipse software (:data:`ECLIPSE`), familiar on screen but
+not perceptually ordered (Crameri et al. 2020). Groups and components use a
+fixed categorical order (:data:`CATEGORICAL`) and also differ in marker or
+line style, so identity never relies on colour alone. Missing cells (removed
+scatter) are shown in light grey.
 """
 
 from __future__ import annotations
@@ -39,6 +42,12 @@ _BLUES = ("#ffffff", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#18
           "#0d366b")
 #: Sequential colour map for intensities (white -> dark blue).
 SEQUENTIAL = LinearSegmentedColormap.from_list("eemkit_blues", _BLUES)
+_ECLIPSE = ("#4b0f8c", "#2a3bd6", "#1c9be6", "#22b14c", "#b5d334", "#f5e31a", "#f7941d",
+            "#d7191c")
+#: Rainbow colour map of the Cary Eclipse contour plots (violet, blue, green, yellow, red).
+ECLIPSE = LinearSegmentedColormap.from_list("eemkit_eclipse", _ECLIPSE)
+#: EEM colour maps by the names used in settings files.
+COLORMAPS = {"blues": SEQUENTIAL, "eclipse": ECLIPSE}
 
 #: Figure widths (inches) for one and two journal columns (85 and 180 mm).
 SINGLE_COLUMN, DOUBLE_COLUMN = 85 / 25.4, 180 / 25.4
@@ -97,20 +106,29 @@ def add_colorbar(cs, ax, label: str = ""):
     return cb
 
 
+def _cmap(cmap):
+    if not isinstance(cmap, str):
+        return cmap
+    if cmap not in COLORMAPS:
+        raise ValueError(f"unknown EEM colour map {cmap!r}; choose one of {sorted(COLORMAPS)}")
+    return COLORMAPS[cmap]
+
+
 def eem(ax, da: xr.DataArray, *, vmax: float | None = None, levels: int = 16,
-        colorbar: bool = True, label: str | None = None):
+        colorbar: bool = True, label: str | None = None, cmap="blues"):
     """Filled contours of one EEM (dims ``ex``, ``em``): emission on x, excitation on y.
 
     The colour scale runs from 0 to ``vmax`` (default: the EEM maximum); values
     outside share the end colours, so a ``vmax`` below the scatter peaks keeps
     the fluorescence readable. NaN cells (removed scatter) stay grey.
+    ``cmap`` is a name in :data:`COLORMAPS` or a matplotlib colour map.
     Returns the contour set.
     """
     da = da.transpose("ex", "em")
     vmax = float(da.max()) if vmax is None else vmax
     ax.set_facecolor(MISSING)
     cs = ax.contourf(da["em"], da["ex"], da.values, levels=np.linspace(0, vmax, levels + 1),
-                     cmap=SEQUENTIAL, extend="both")
+                     cmap=_cmap(cmap), extend="both")
     ax.set_xlabel("Emission (nm)")
     ax.set_ylabel("Excitation (nm)")
     if colorbar:
@@ -119,7 +137,8 @@ def eem(ax, da: xr.DataArray, *, vmax: float | None = None, levels: int = 16,
 
 
 def eems(panels: Mapping[str, xr.DataArray], *, ncols: int = 3, shared_scale: bool = False,
-         vmax: float | Mapping[str, float] | None = None, width: float = DOUBLE_COLUMN):
+         vmax: float | Mapping[str, float] | None = None, width: float = DOUBLE_COLUMN,
+         cmap="blues"):
     """Small multiples of EEMs, one titled panel per mapping entry.
 
     ``vmax`` (one value, or one per panel title) caps the colour scale;
@@ -135,13 +154,32 @@ def eems(panels: Mapping[str, xr.DataArray], *, ncols: int = 3, shared_scale: bo
         one_scale = vmax is not None and not isinstance(vmax, Mapping)
         for ax, (title, da) in zip(axes.flat, panels.items(), strict=False):
             cs = eem(ax, da, vmax=vmax.get(title) if isinstance(vmax, Mapping) else vmax,
-                     colorbar=not one_scale)
+                     colorbar=not one_scale, cmap=cmap)
             ax.set_title(title, loc="left")
         if one_scale:
             add_colorbar(cs, list(axes.flat[:n]),
                          next(iter(panels.values())).attrs.get("units", ""))
         for ax in axes.flat[n:]:
             ax.set_visible(False)
+    return fig
+
+
+def spectral_factors(ds: xr.Dataset, *, width: float = SINGLE_COLUMN):
+    """The excitation and emission correction factors applied to ``ds``.
+
+    Needs the ``spectral_correction_ex`` and ``spectral_correction_em``
+    variables written by :func:`eemkit.corrections.apply_spectral_correction`.
+    """
+    with style():
+        fig, ax = plt.subplots(figsize=(width, width * 0.7), layout="constrained")
+        for k, (dim, label, ls) in enumerate((("ex", "Excitation", (0, (3, 1.5))),
+                                              ("em", "Emission", "-"))):
+            f = ds[f"spectral_correction_{dim}"]
+            ax.plot(f[dim], f, color=_colour(k), ls=ls, label=label)
+        ax.set_xlabel("Wavelength (nm)")
+        ax.set_ylabel("Correction factor (multiplier)")
+        ax.yaxis.grid(True)
+        ax.legend()
     return fig
 
 
@@ -165,7 +203,8 @@ def _halves_aligned(model: xr.Dataset, split: xr.Dataset) -> tuple[np.ndarray, n
 
 
 def components(model: xr.Dataset, split_half: xr.Dataset | None = None, *,
-               names: Sequence[str] | None = None, width: float = DOUBLE_COLUMN):
+               names: Sequence[str] | None = None, width: float = DOUBLE_COLUMN,
+               cmap="blues"):
     """One column per component: its EEM (top) and its loadings (bottom).
 
     Loadings are scaled to a maximum of 1; with ``split_half``, the loadings of
@@ -184,7 +223,7 @@ def components(model: xr.Dataset, split_half: xr.Dataset | None = None, *,
             ax = axes[0, f]
             comp = xr.DataArray(np.outer(exl[:, f], eml[:, f]), dims=("ex", "em"),
                                 coords={"ex": ex, "em": em})
-            cs = eem(ax, comp, vmax=1.0, colorbar=False)
+            cs = eem(ax, comp, vmax=1.0, colorbar=False, cmap=cmap)
             ax.set_title(names[f], loc="left")
             if f:
                 ax.set_ylabel("")

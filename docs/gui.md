@@ -33,9 +33,11 @@ collected and shown with a "⚠ warnings" button in the status bar.
    the reason for each choice in `pairing_notes`; rows are used only after you
    check and include them. Cells are edited by double-click; file columns
    offer the files found by the scan.
-2. **Corrections.** Cuvette path lengths (required, no default), Raman
-   normalisation, scatter bands, crop. *Apply corrections* runs the chain in
-   the enforced order; the preview shows any sample at any step.
+2. **Corrections.** Optional instrument spectral correction (excitation and
+   emission factor files; each file is read when chosen and its range shown),
+   cuvette path lengths (required, no default), Raman normalisation, scatter
+   bands, crop. *Apply corrections* runs the chain in the enforced order; the
+   preview shows any sample at any step, and the factors that were applied.
 3. **Indices.** FI, HIX, BIX and Coble peaks, as a table and plotted against
    any sample column (e.g. campaign) grouped by another (e.g. river).
 4. **PARAFAC.** Exploratory models for a range of components with split-half
@@ -48,6 +50,10 @@ collected and shown with a "⚠ warnings" button in the status bar.
 
 When a setting changes, results that depended on it are discarded, so no tab
 shows results that are out of date.
+
+**View → EEM colours** switches every EEM plot (previews, components, exported
+figures) between the Cary Eclipse rainbow (default) and a single-hue blue
+scale for print. The choice is saved in the project file.
 
 ## Stand-alone build
 
