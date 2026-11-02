@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
 import xarray as xr
+from conftest import cary60_text, eclipse_text
 
 from eemkit import GridError, get_history, load_dataset, read_cary_eclipse, stack
-from tests.conftest import cary60_text, eclipse_text
 
 EM_1NM = np.arange(250.0, 260.01, 1.03)
 

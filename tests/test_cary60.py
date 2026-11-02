@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
+from conftest import cary60_text
 
 from eemkit import EEMKitWarning, FileFormatError, get_history, mean_cycles, read_cary60
-from tests.conftest import cary60_text
 
 
 def test_reads_cycles_ascending_and_metadata(write):
@@ -50,7 +50,7 @@ def test_not_absorbance_mode(write):
 
 
 def test_eclipse_file_is_rejected(write):
-    from tests.conftest import eclipse_text
+    from conftest import eclipse_text
 
     with pytest.raises(FileFormatError):
         read_cary60(write("A.csv", eclipse_text()))

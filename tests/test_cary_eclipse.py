@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
+from conftest import EM_IRREGULAR, eclipse_text
 
 from eemkit import EEMKitWarning, FileFormatError, get_history, read_cary_eclipse
-from tests.conftest import EM_IRREGULAR, eclipse_text
 
 
 def test_reads_values_axes_and_metadata(write):
