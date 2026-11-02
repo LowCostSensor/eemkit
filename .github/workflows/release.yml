@@ -1,0 +1,52 @@
+# Runs when a release is published on GitHub:
+# 1. builds the sdist and wheel and uploads them to PyPI (trusted publishing:
+#    register this repository and the "pypi" environment on pypi.org first);
+# 2. builds the stand-alone Windows application and attaches the zip to the release.
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  pypi:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  windows-app:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ".[gui]" pyinstaller
+      - name: Build
+        working-directory: packaging
+        run: pyinstaller eemkit-gui.spec --noconfirm --distpath ${{ runner.temp }}\dist --workpath ${{ runner.temp }}\build
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path "${{ runner.temp }}\dist\eemkit" -DestinationPath "eemkit-${{ github.ref_name }}-windows.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eemkit-windows
+          path: eemkit-*-windows.zip
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.ref_name }}" (Get-ChildItem eemkit-*-windows.zip).FullName --clobber

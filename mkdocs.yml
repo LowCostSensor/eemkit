@@ -1,0 +1,62 @@
+site_name: eemkit
+site_description: EEM processing and PARAFAC modelling of dissolved organic matter fluorescence
+site_url: https://lowcostsensor.github.io/eemkit/
+repo_url: https://github.com/LowCostSensor/eemkit
+repo_name: LowCostSensor/eemkit
+edit_uri: edit/main/docs/
+copyright: eemkit is free software under the GNU GPL v3.0 or later
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Desktop application:
+      - Guide: app-guide.md
+      - Installation and build: gui.md
+  - Methods:
+      - Data model: data_model.md
+      - Corrections: corrections.md
+      - Indices: indices.md
+      - PARAFAC: parafac.md
+      - Figures: plotting.md
+  - API reference: api.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            heading_level: 3
+            members_order: source
+            show_signature_annotations: true
+            separate_signature: true

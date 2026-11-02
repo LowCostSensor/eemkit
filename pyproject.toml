@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,6 +7,9 @@ name = "eemkit"
 dynamic = ["version"]
 description = "Excitation-emission matrix (EEM) processing and PARAFAC modelling of dissolved organic matter fluorescence"
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Riccardo Gaetano Cirrone" }]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.24",
@@ -14,17 +17,32 @@ dependencies = [
     "xarray>=2023.1",
     "scipy>=1.10",
 ]
+keywords = ["fluorescence", "EEM", "PARAFAC", "dissolved organic matter", "DOM", "CDOM",
+            "fDOM", "spectroscopy"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Hydrology",
 ]
+
+[project.urls]
+Homepage = "https://github.com/LowCostSensor/eemkit"
+Documentation = "https://lowcostsensor.github.io/eemkit/"
+Issues = "https://github.com/LowCostSensor/eemkit/issues"
+Changelog = "https://github.com/LowCostSensor/eemkit/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
 gui = ["matplotlib>=3.8", "PySide6>=6.6"]
 dev = ["pytest>=7", "pytest-cov", "pytest-qt", "ruff", "tensorly", "matplotlib>=3.8",
        "PySide6>=6.6"]  # tensorly: independent cross-check
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 
 [project.gui-scripts]
 eemkit-gui = "eemkit.gui:main"
@@ -34,6 +52,10 @@ path = "src/eemkit/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eemkit"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/eemkit", "tests", "docs", "LICENSE", "README.md", "CHANGELOG.md",
+           "CITATION.cff"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

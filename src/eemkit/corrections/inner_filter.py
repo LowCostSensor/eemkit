@@ -56,6 +56,8 @@ def correct_inner_filter(
         Samples whose A254 over the fluorescence path exceeds this value get a
         warning (Kothawala et al. 2013 recommend dilution above 1.5).
 
+    Notes
+    -----
     The absorbance must already be blank-corrected
     (:func:`~eemkit.corrections.subtract_absorbance_blank`). The applied
     factor is kept as the variable ``ife_factor(sample, ex, em)``.

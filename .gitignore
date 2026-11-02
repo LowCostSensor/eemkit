@@ -8,3 +8,6 @@ htmlcov/
 build/
 dist/
 site/
+
+# paper drafts are kept outside the repository
+paper/

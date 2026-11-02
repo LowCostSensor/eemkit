@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -53,7 +54,8 @@ class Project(QObject):
         if not v:
             return None
         p = Path(v)
-        return p if p.is_absolute() else self.base / p
+        # normpath, not resolve(): folds "config/../data" without following drive mappings
+        return p if p.is_absolute() else Path(os.path.normpath(self.base / p))
 
     def in_data_root(self, path: str | Path) -> bool:
         """True if ``path`` lies in the (read-only) data folder."""

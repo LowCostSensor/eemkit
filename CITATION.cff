@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use eemkit, please cite it as below."
+title: "eemkit: EEM processing and PARAFAC modelling of dissolved organic matter fluorescence"
+type: software
+authors:
+  - family-names: Cirrone
+    given-names: Riccardo Gaetano
+    affiliation: University of Siena
+version: 0.1.0
+date-released: "2026-11-02"
+license: GPL-3.0-or-later
+repository-code: "https://github.com/LowCostSensor/eemkit"
+url: "https://lowcostsensor.github.io/eemkit/"
+keywords:
+  - fluorescence
+  - excitation-emission matrix
+  - PARAFAC
+  - dissolved organic matter
+  - fDOM
+  - CDOM

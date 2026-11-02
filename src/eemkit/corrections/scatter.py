@@ -92,6 +92,8 @@ def remove_scatter(
     variables
         Data variables to process.
 
+    Notes
+    -----
     The removed region is stored as ``scatter_mask(ex, em)``.
     """
     step = "remove_scatter"
@@ -145,6 +147,8 @@ def interpolate_missing(
         excitation at each emission wavelength; ``"both"``: mean of the two
         estimates where both exist, otherwise whichever exists.
 
+    Notes
+    -----
     Only gaps bracketed by measured values are filled; gaps at the edge of
     the EEM stay NaN. The coordinates ``n_interpolated(sample)`` and
     ``n_still_missing(sample)`` count filled and remaining values.
