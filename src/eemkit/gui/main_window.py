@@ -1,13 +1,27 @@
-"""The main window: one tab per step, a File menu and the shared progress bar."""
+"""The main window: a sidebar of steps, one page per step, menus and the shared progress bar."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
-from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QTabWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from eemkit import __version__
+from eemkit.gui import theme
+from eemkit.gui.campaigns_tab import CampaignsTab
 from eemkit.gui.common import TaskBar
 from eemkit.gui.corrections_tab import CorrectionsTab
 from eemkit.gui.export_tab import ExportTab
@@ -16,6 +30,15 @@ from eemkit.gui.parafac_tab import ParafacTab
 from eemkit.gui.project_tab import ProjectTab
 from eemkit.gui.state import Project
 from eemkit.pipeline import versions
+
+#: Sidebar entries: (title, one-line description).
+STEPS = (("Project and pairing", "Data folder, pairing table"),
+         ("Corrections", "Inner filter, Raman units, scatter"),
+         ("Indices and CDOM", "FI, HIX, BIX, peaks, absorbance"),
+         ("PARAFAC", "Models, validation, outliers"),
+         ("Rivers and dates", "Campaigns, sites, covariates"),
+         ("Export", "Tables, figures, OpenFluor"))
+THEME_NAMES = {"system": "Follow the system", "light": "Light", "dark": "Dark"}
 
 ABOUT = f"""<b>eemkit {__version__}</b><br>
 Processing and PARAFAC modelling of fluorescence excitation-emission matrices
@@ -36,26 +59,78 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.project = Project()
         self.tasks = TaskBar()
-        self.tabs = QTabWidget()
         self.project_tab = ProjectTab(self.project, self.tasks)
         self.corrections_tab = CorrectionsTab(self.project, self.tasks)
         self.indices_tab = IndicesTab(self.project, self.tasks)
         self.parafac_tab = ParafacTab(self.project, self.tasks)
+        self.campaigns_tab = CampaignsTab(self.project, self.tasks)
         self.export_tab = ExportTab(self.project, self.tasks)
-        for tab, name in ((self.project_tab, "1  Project and pairing"),
-                          (self.corrections_tab, "2  Corrections"),
-                          (self.indices_tab, "3  Indices"),
-                          (self.parafac_tab, "4  PARAFAC"),
-                          (self.export_tab, "5  Export")):
-            self.tabs.addTab(tab, name)
-        self.setCentralWidget(self.tabs)
+        self.pages = QStackedWidget()
+        self.nav = QListWidget()
+        self.nav.setObjectName("nav")
+        for i, (page, (title, _)) in enumerate(zip(
+                (self.project_tab, self.corrections_tab, self.indices_tab, self.parafac_tab,
+                 self.campaigns_tab, self.export_tab), STEPS, strict=True)):
+            self.pages.addWidget(page)
+            self.nav.addItem(QListWidgetItem(f"{i + 1}   {title}"))
+        self.nav.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.nav.setCurrentRow(0)
+        self.summary = QLabel("")
+        self.summary.setObjectName("summary")
+        self.summary.setWordWrap(True)
+
+        sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(250)
+        sl = QVBoxLayout(sidebar)
+        sl.setContentsMargins(0, 0, 0, 0)
+        sl.setSpacing(0)
+        brand = QLabel("eemkit")
+        brand.setObjectName("brand")
+        tagline = QLabel("EEM processing and PARAFAC")
+        tagline.setObjectName("tagline")
+        for w in (brand, tagline):
+            sl.addWidget(w)
+        sl.addWidget(self.nav, 1)
+        sl.addWidget(self.summary)
+        central = QWidget()
+        cl = QHBoxLayout(central)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
+        cl.addWidget(sidebar)
+        cl.addWidget(self.pages, 1)
+        self.setCentralWidget(central)
         self.statusBar().addPermanentWidget(self.tasks, 1)
         self._menus()
         self.project.changed.connect(lambda _: self._title())
-        self.resize(1400, 900)
+        self.project.changed.connect(lambda _: self._status())
+        self.resize(1440, 900)
         if project_file:
             self.open_project(project_file)
         self._title()
+        self._status()
+
+    def _status(self) -> None:
+        """Mark finished steps in the sidebar and summarise the project under it."""
+        p = self.project
+        done = (p.raw is not None, p.corrected is not None, p.indices is not None,
+                p.model is not None, p.campaign is not None, False)
+        partial = (p.pairing is not None, p.after_raman is not None, False,
+                   p.exploration is not None, False, False)
+        for i, (title, desc) in enumerate(STEPS):
+            mark = "  ✓" if done[i] else ("  •" if partial[i] else "")
+            item = self.nav.item(i)
+            item.setText(f"{i + 1}   {title}{mark}")
+            item.setToolTip(desc)
+        lines = []
+        if p.pairing is not None and "include" in p.pairing:
+            inc = int((p.pairing["include"].astype(str).str.lower() == "yes").sum())
+            lines.append(f"{len(p.pairing)} rows in the pairing table, {inc} included")
+        if p.raw is not None:
+            lines.append(f"{p.raw.sizes['sample']} samples loaded")
+        if p.model is not None:
+            lines.append(f"Final model: {p.model.sizes['component']} components")
+        self.summary.setText("\n".join(lines) or "Open a project or choose a data folder.")
 
     def _menus(self) -> None:
         m = self.menuBar().addMenu("&File")
@@ -72,7 +147,19 @@ class MainWindow(QMainWindow):
             act.setShortcut(key)
             act.triggered.connect(slot)
             m.addAction(act)
-        v = self.menuBar().addMenu("&View").addMenu("&EEM colours")
+        view = self.menuBar().addMenu("&View")
+        t = view.addMenu("&Theme")
+        tgroup = QActionGroup(self)
+        self.theme_actions = {}
+        current = theme.saved_theme()
+        for name, text in THEME_NAMES.items():
+            act = QAction(text, self, checkable=True)
+            act.setChecked(name == current)
+            act.triggered.connect(lambda _, n=name: self.set_theme(n))
+            tgroup.addAction(act)
+            t.addAction(act)
+            self.theme_actions[name] = act
+        v = view.addMenu("&EEM colours")
         group = QActionGroup(self)
         self.colour_actions = {}
         for name, text in EEM_COLOURS.items():
@@ -87,6 +174,13 @@ class MainWindow(QMainWindow):
         act = QAction("&About eemkit", self)
         act.triggered.connect(self.about)
         h.addAction(act)
+
+    def set_theme(self, name: str) -> None:
+        """Switch the light/dark theme; a user preference, not part of the project."""
+        theme.save_theme(name)
+        app = QApplication.instance()
+        if app is not None:
+            theme.apply_theme(app, name)
 
     def _sync_colours(self, what: str) -> None:
         if what in ("settings", "display"):

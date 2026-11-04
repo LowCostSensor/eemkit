@@ -26,7 +26,11 @@ button (cancellation takes effect after the current model fit). Warnings
 raised during a computation (for example a model that did not converge) are
 collected and shown with a "⚠ warnings" button in the status bar.
 
-## Tabs
+## Steps
+
+The steps are listed in a sidebar; a ✓ marks the steps whose results are
+ready (• when they are partly done), and a summary of the project sits below
+the list. The main action of each page is the coloured button.
 
 1. **Project and pairing.** Choose the data folder (only read, never
    written), the pairing table and an output folder. *Scan data folder*
@@ -42,20 +46,31 @@ collected and shown with a "⚠ warnings" button in the status bar.
    cuvette path lengths (required, no default), Raman normalisation, scatter
    bands, crop. *Apply corrections* runs the chain in the enforced order; the
    preview shows any sample at any step, and the factors that were applied.
-3. **Indices.** FI, HIX, BIX and Coble peaks, as a table and plotted against
-   any sample column (e.g. campaign) grouped by another (e.g. river).
+3. **Indices and CDOM.** FI, HIX, BIX and Coble peaks, and the
+   [CDOM metrics](absorbance.md) (a254, a350, spectral slopes, SR, E2:E3,
+   SUVA254 with a DOC column), as one table plotted against any sample column
+   (e.g. campaign) grouped by another (e.g. river).
 4. **PARAFAC.** Exploratory models for a range of components with split-half
    validation; the number-of-components diagnostics, the components of each
    model with the split-half models behind, and an outlier view (leverage vs
    residuals) from which samples can be left out. Then the final model.
-5. **Export.** Corrected EEMs, indices, PARAFAC tables, OpenFluor file and
+5. **Rivers and dates.** [Comparison of campaigns, sites and rivers](campaigns.md)
+   for any variable of the indices table or of the final model (Fmax, share of
+   each component): replicate means per site and time, a warning when rivers
+   and dates cannot be separated, Kruskal–Wallis and Dunn tests between
+   campaigns within each river, correlations with the position along the
+   river and with covariates from optional tables. *Save to output folder*
+   writes the tables and figures in `campaigns/<variable>/`.
+6. **Export.** Corrected EEMs, indices, PARAFAC tables, OpenFluor file and
    figures, always with `settings.toml` and `processing_record.json`
    (software versions and every processing step with its parameters).
 
 When a setting changes, results that depended on it are discarded, so no tab
 shows results that are out of date.
 
-**View → EEM colours** switches every EEM plot (previews, components, exported
+**View → Theme** switches between a light and a dark theme, or follows the
+operating system; the choice is a preference of the computer, not of the
+project. **View → EEM colours** switches every EEM plot (previews, components, exported
 figures) between the Cary Eclipse rainbow (default) and a single-hue blue
 scale for print. The choice is saved in the project file.
 

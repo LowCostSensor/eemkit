@@ -41,6 +41,7 @@ from eemkit.errors import Cancelled, EEMKitError, EEMKitWarning
 
 SUGGESTED = QColor("#fff4d6")
 EXCLUDED = QColor("#f0efec")
+ROW_TEXT = QColor("#1d232b")
 
 
 # --------------------------------------------------------------------------- #
@@ -86,6 +87,9 @@ class DataFrameModel(QAbstractTableModel):
             return "" if v is None else str(v)
         if role == Qt.BackgroundRole and self.row_colour is not None:
             return self.row_colour(self._df.iloc[index.row()])
+        if role == Qt.ForegroundRole and self.row_colour is not None \
+                and self.row_colour(self._df.iloc[index.row()]) is not None:
+            return ROW_TEXT  # tinted rows are light in both themes
         return None
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):  # noqa: N802
@@ -236,7 +240,7 @@ class TaskBar(QWidget):
         self.cancel_button.clicked.connect(self.cancel)
         self.warnings_button = QPushButton("")
         self.warnings_button.setFlat(True)
-        self.warnings_button.setStyleSheet("color: #8a5a00;")
+        self.warnings_button.setProperty("role", "warning")
         self.warnings_button.clicked.connect(self.show_warnings)
         lay.addWidget(self.label, 1)
         lay.addWidget(self.warnings_button)
@@ -350,7 +354,11 @@ class OptionalFloat(QLineEdit):
         return self.value() is not None
 
     def _validate(self) -> None:
-        self.setStyleSheet("" if self.is_valid() else "background: #fbe3e3;")
+        invalid = not self.is_valid()
+        if self.property("invalid") != invalid:
+            self.setProperty("invalid", invalid)
+            self.style().unpolish(self)
+            self.style().polish(self)
 
 
 def spin(value: float, lo: float, hi: float, step: float = 1.0, decimals: int = 1,
@@ -377,5 +385,11 @@ def pair(*widgets: QWidget) -> QWidget:
 def note(text: str) -> QLabel:
     lab = QLabel(text)
     lab.setWordWrap(True)
-    lab.setStyleSheet("color: #52514e;")
+    lab.setProperty("role", "note")
     return lab
+
+
+def primary(button: QPushButton) -> QPushButton:
+    """Mark ``button`` as the main action of its step (accent colour in the theme)."""
+    button.setProperty("primary", True)
+    return button

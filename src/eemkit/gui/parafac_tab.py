@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from eemkit import pipeline, plot
-from eemkit.gui.common import DataFrameModel, PlotPanel, TaskBar, note, pair, spin
+from eemkit.gui.common import DataFrameModel, PlotPanel, TaskBar, note, pair, primary, spin
 from eemkit.gui.state import Project
 
 
@@ -92,7 +92,7 @@ class ParafacTab(QWidget):
         v.addWidget(note("Add samples from the Outliers view. Record why in your notes: "
                          "the list is saved in the project file."))
 
-        self.b_explore = QPushButton("Run exploratory models")
+        self.b_explore = primary(QPushButton("Run exploratory models"))
         self.b_explore.clicked.connect(self.explore)
 
         fin = p["final"]
@@ -106,7 +106,7 @@ class ParafacTab(QWidget):
         f.addRow("Random starts", self.f_init)
         f.addRow("Convergence", self.f_tol)
         f.addRow("Max iterations", self.f_iter)
-        self.b_final = QPushButton("Fit final model")
+        self.b_final = primary(QPushButton("Fit final model"))
         self.b_final.clicked.connect(self.fit_final)
         f.addRow(self.b_final)
 

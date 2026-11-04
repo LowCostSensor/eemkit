@@ -11,6 +11,7 @@ pytest.importorskip("PySide6")
 pytest.importorskip("pytestqt")
 
 from PySide6.QtWidgets import QMessageBox  # noqa: E402
+from test_campaigns import survey  # noqa: E402
 from test_pipeline import make_project  # noqa: E402
 
 from eemkit import pipeline  # noqa: E402
@@ -81,10 +82,12 @@ def test_full_workflow(qtbot, window, dialogs, tmp_path):
     assert p.settings["inner_filter"]["absorbance_path_length_cm"] == 1.0
     assert w.corrections_tab.plot.figure is not None
 
-    # 3 indices
+    # 3 indices and CDOM metrics
     w.indices_tab.compute()
     _idle(qtbot, w)
-    assert {"FI", "HIX", "BIX"} <= set(p.indices.columns)
+    assert {"FI", "HIX", "BIX", "a254", "S275_295", "SR", "cdom_notes"} <= set(p.indices.columns)
+    assert p.settings["absorbance"]["baseline"] == [680.0, 700.0]
+    assert "✓" in w.nav.item(2).text()
 
     # 4 PARAFAC
     t = w.parafac_tab
@@ -170,8 +173,43 @@ def test_spectral_correction_and_eem_colours(qtbot, window, dialogs, tmp_path):
     assert back["display"]["eem_colours"] == "blues"
 
 
-def test_changing_settings_drops_dependent_results(qtbot, window, tmp_path):
-    p = window.project
+def test_rivers_and_dates_page(qtbot, window, dialogs, tmp_path):
+    w, p, t = window, window.project, window.campaigns_tab
+    p.indices = survey()
+    p.changed.emit("indices")
+    t.value.setCurrentText("HIX")
+    t.group.setCurrentText("river")
+    t.time.setCurrentText("campaign")
+    t.site.setCurrentText("site")
+    t.analyse()
+    _idle(qtbot, w)
+    res = p.campaign
+    assert res is not None and res.value == "HIX", dialogs
+    assert p.settings["campaigns"]["group"] == "river"
+    assert not t.warn.isHidden() and "confounded" in t.warn.text()
+    assert t.models["kruskal"].rowCount() == 2 and t.plots["time"].figure is not None
+    assert t.plots["composition"].figure is not None  # C1_pct, C2_pct from the Fmax columns
+    assert "✓" in w.nav.item(4).text()
+    p.set_path_setting("output_dir", tmp_path / "out")
+    t.save()
+    assert (tmp_path / "out" / "campaigns" / "HIX" / "HIX_kruskal.csv").is_file()
+
+
+def test_theme_switch(window, monkeypatch):
+    from PySide6.QtWidgets import QApplication
+
+    from eemkit.gui import theme
+    saved = []
+    monkeypatch.setattr(theme, "save_theme", saved.append)  # keep the user's preference
+    window.set_theme("dark")
+    assert saved == ["dark"] and QApplication.instance().property("eemkit_theme") == "dark"
+    assert theme.apply_theme(QApplication.instance(), "light") == "light"
+    QApplication.instance().setStyleSheet("")
+
+
+def test_changing_settings_drops_dependent_results():
+    from eemkit.gui.state import Project
+    p = Project()  # alone: the placeholders below are not real results the pages could show
     p.exploration, p.model = object(), object()
     p.set_settings("raman", {"ex": 351.0}, "corrected")
     assert p.exploration is None and p.model is None

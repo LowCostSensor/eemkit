@@ -33,7 +33,9 @@ nav:
       - Data model: data_model.md
       - Corrections: corrections.md
       - Indices: indices.md
+      - CDOM metrics: absorbance.md
       - PARAFAC: parafac.md
+      - Rivers, sites and dates: campaigns.md
       - Figures: plotting.md
   - API reference: api.md
 

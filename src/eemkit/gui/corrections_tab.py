@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from eemkit import corrections as C
 from eemkit import pipeline, plot
-from eemkit.gui.common import OptionalFloat, PlotPanel, TaskBar, note, pair, spin
+from eemkit.gui.common import OptionalFloat, PlotPanel, TaskBar, note, pair, primary, spin
 from eemkit.gui.state import Project
 
 BANDS = {"rayleigh1": "Rayleigh 1st order", "raman1": "Raman 1st order",
@@ -116,7 +116,7 @@ class CorrectionsTab(QWidget):
         f = QFormLayout(g_miss)
         f.addRow("Policy", self.missing)
 
-        self.b_apply = QPushButton("Apply corrections")
+        self.b_apply = primary(QPushButton("Apply corrections"))
         self.b_apply.clicked.connect(self.apply)
         form = QWidget()
         fl = QVBoxLayout(form)

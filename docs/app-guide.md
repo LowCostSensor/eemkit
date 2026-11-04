@@ -8,6 +8,9 @@ The app is a front end to the eemkit library and does no calculations of its own
 
 Labels in this guide are written as they appear on screen, for example `Apply corrections`.
 
+!!! note "New layout in the development version"
+    The steps are now listed in a sidebar instead of tabs, with a ✓ for each finished step, and the app has light and dark themes (`View` → `Theme`). Two pages are new: CDOM metrics in step 3 (see [CDOM metrics](absorbance.md)) and step 5, *Rivers and dates* (see [Rivers, sites and dates](campaigns.md)); Export is now step 6. The screenshots below show the 0.1.0 layout and will be updated.
+
 ## Starting the app
 
 ### From Python

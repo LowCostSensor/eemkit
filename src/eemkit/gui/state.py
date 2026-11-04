@@ -11,10 +11,11 @@ from PySide6.QtCore import QObject, Signal
 
 from eemkit import pipeline
 
-STAGES = ("pairing", "raw", "corrected", "indices", "exploration", "final")
+STAGES = ("pairing", "raw", "corrected", "indices", "exploration", "final", "campaigns")
 #: Settings that hold file paths, as (section, key).
 PATH_SETTINGS = (("project", "data_root"), ("project", "pairing"), ("project", "output_dir"),
-                 ("spectral", "ex_factors"), ("spectral", "em_factors"))
+                 ("spectral", "ex_factors"), ("spectral", "em_factors"),
+                 ("campaigns", "sites_table"), ("campaigns", "covariates_table"))
 
 
 class Project(QObject):
@@ -40,6 +41,7 @@ class Project(QObject):
         self.exploration: pipeline.Exploration | None = None
         self.model: xr.Dataset | None = None
         self.split: xr.Dataset | None = None
+        self.campaign: pipeline.CampaignAnalysis | None = None
         self.dirty = False
 
     # paths -------------------------------------------------------------- #
@@ -94,6 +96,7 @@ class Project(QObject):
             self.exploration = None
         if "final" in later:
             self.model = self.split = None
+        self.campaign = None  # last stage: depends on everything before it
         for s in later:
             self.changed.emit(s)
 

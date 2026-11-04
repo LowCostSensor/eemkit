@@ -338,6 +338,57 @@ def leverage(model: xr.Dataset, *, by: str | None = None, n_label: int = 5,
     return fig
 
 
+def campaign_series(units: pd.DataFrame, value: str, *, group: str, time: str,
+                    width: float = SINGLE_COLUMN * 1.4):
+    """``value`` over time, one line per group: mean +/- SD across sites.
+
+    ``units`` holds one row per site and time (replicate means, as returned by
+    :func:`eemkit.campaigns.site_means`); its points are drawn behind the means.
+    """
+    return scores_over(units, [value], x=time, by=group, width=width, ncols=1, xlabel=time)
+
+
+def along_sites(units: pd.DataFrame, value: str, position: str, *, group: str,
+                width: float = SINGLE_COLUMN * 1.4):
+    """``value`` against site position (e.g. distance from the source), one series per group."""
+    groups = _groups(units[group].values)
+    with style():
+        fig, ax = plt.subplots(figsize=(width, width * 0.7), layout="constrained")
+        for k, g in enumerate(groups):
+            sub = units[units[group].astype(str) == g].sort_values(position)
+            ax.scatter(sub[position], sub[value], s=14, color=_colour(k), marker=MARKERS[k],
+                       edgecolors="white", linewidths=0.5, label=g)
+        ax.set_xlabel(position)
+        ax.set_ylabel(value)
+        ax.yaxis.grid(True)
+        fig.legend(loc="outside upper center", ncols=len(groups))
+    return fig
+
+
+def composition(units: pd.DataFrame, pct_columns: Sequence[str], *, group: str, time: str,
+                width: float = DOUBLE_COLUMN):
+    """Mean share (%) of each PARAFAC component per time, one panel per group (stacked bars)."""
+    groups = _groups(units[group].values)
+    with style():
+        fig, axes = plt.subplots(1, len(groups), figsize=(width, width / 3.2), squeeze=False,
+                                 layout="constrained", sharey=True)
+        for ax, g in zip(axes.flat, groups, strict=True):
+            sub = units[units[group].astype(str) == g]
+            mean = sub.groupby(sub[time].astype(str))[list(pct_columns)].mean().sort_index()
+            bottom = np.zeros(len(mean))
+            for k, col in enumerate(pct_columns):
+                ax.bar(range(len(mean)), mean[col], bottom=bottom, color=_colour(k), width=0.7,
+                       edgecolor="white", linewidth=0.5, label=col.removesuffix("_pct"))
+                bottom += mean[col].fillna(0).to_numpy()
+            ax.set_xticks(range(len(mean)), mean.index, rotation=45, ha="right")
+            ax.set_title(g, loc="left")
+            ax.set_ylim(0, 100)
+        axes[0, 0].set_ylabel("Share of total Fmax (%)")
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="outside upper center", ncols=len(pct_columns))
+    return fig
+
+
 def scores_over(df: pd.DataFrame, columns: Sequence[str], *, x: str, by: str,
                 titles: Sequence[str] | None = None, ylabel: str = "",
                 x_order: Sequence | None = None, x_labels: Mapping[str, str] | None = None,

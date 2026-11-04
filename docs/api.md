@@ -47,6 +47,16 @@
         - peaks
         - export_indices
 
+## CDOM metrics
+
+::: eemkit.absorbance
+    options:
+      show_root_toc_entry: false
+      members:
+        - compute_absorbance_metrics
+        - baseline_corrected
+        - spectral_slope
+
 ## PARAFAC
 
 ::: eemkit.parafac.model
@@ -66,6 +76,12 @@
       show_root_toc_entry: false
 
 ::: eemkit.parafac.export.to_openfluor
+
+## Rivers, sites and dates
+
+::: eemkit.campaigns
+    options:
+      show_root_toc_entry: false
 
 ## Pipeline
 

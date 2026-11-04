@@ -2,9 +2,9 @@
 
 The settings are a nested dictionary, stored as TOML, with the sections
 ``project``, ``spectral``, ``inner_filter``, ``raman``, ``scatter``, ``crop``,
-``indices``, ``parafac`` (with ``split_half`` and ``final``), ``missing`` and
-``display``. The same file drives scripts and the desktop application, so
-every analysis can be rerun from the command line.
+``indices``, ``absorbance``, ``campaigns``, ``parafac`` (with ``split_half``
+and ``final``), ``missing`` and ``display``. The same file drives scripts and
+the desktop application, so every analysis can be rerun from the command line.
 
 Steps, in the enforced order of the corrections:
 
@@ -13,11 +13,13 @@ Steps, in the enforced order of the corrections:
    absorbance blank, inner filter, EEM blank, Raman units;
    :func:`finish_corrections` - scatter, optional interpolation, crop;
 3. :func:`compute_indices` - on the Raman-normalised EEMs, before scatter
-   removal;
+   removal; :func:`compute_absorbance` - CDOM metrics;
 4. :func:`explore` - PARAFAC for a range of ranks with split-half
    validation; :func:`fit_final` - the chosen rank with tighter convergence;
-5. :func:`export_results` - tables, OpenFluor file, figures, settings and
-   processing history.
+5. :func:`campaign_analysis` - differences between campaigns, along sites
+   and with covariates, on any column of :func:`sample_table`;
+6. :func:`export_results` - tables, OpenFluor file, figures, settings and
+   processing history; :func:`export_campaigns` for campaign analyses.
 
 Defaults that are scientific choices are listed in :data:`DEFAULTS` with
 their source; values that depend on the measurement (cuvette path lengths)
@@ -29,6 +31,7 @@ from __future__ import annotations
 import copy
 import json
 import platform
+import re
 import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -38,6 +41,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from eemkit import absorbance as A
+from eemkit import campaigns as K
 from eemkit import corrections as C
 from eemkit import indices as I
 from eemkit import parafac as P
@@ -65,6 +70,14 @@ DEFAULTS: dict = {
                 "zero_below_rayleigh": None, "interpolate": False},
     "crop": {"ex_min": None, "ex_max": None, "em_min": None, "em_max": None},
     "indices": {"ex_method": "linear", "bix_em_den": 430.0},
+    # CDOM metrics. Baseline: mean absorbance 680-700 nm subtracted (Green & Blough 1994;
+    # Helms et al. 2008). min_r2: eemkit quality threshold for the log-linear slope fits,
+    # not a literature value. doc_column: sample column with DOC (mg/L), for SUVA254.
+    "absorbance": {"baseline": [680.0, 700.0], "min_r2": 0.95, "doc_column": ""},
+    # Comparison of campaigns, sites and rivers: names of sample columns, and optional
+    # site table (by group and site) and covariate table (by group and time).
+    "campaigns": {"group": "", "site": "", "time": "", "position": "", "sites_table": "",
+                  "covariates_table": ""},
     # Murphy et al. (2013)
     "parafac": {
         "ranks": [2, 3, 4, 5, 6, 7], "n_init": 10, "normalization": "norm", "tol": 1e-6,
@@ -229,6 +242,17 @@ def compute_indices(after_raman: xr.Dataset, settings: dict) -> pd.DataFrame:
     return df
 
 
+def compute_absorbance(after_raman: xr.Dataset, settings: dict) -> pd.DataFrame:
+    """CDOM metrics (a254, a350, spectral slopes, SR, E2:E3, SUVA254 with DOC)."""
+    s = settings["absorbance"]
+    baseline = tuple(s["baseline"]) if s.get("baseline") else None
+    return A.compute_absorbance_metrics(
+        after_raman,
+        absorbance_path_length_cm=_required(settings, "inner_filter",
+                                            "absorbance_path_length_cm"),
+        baseline=baseline, min_r2=float(s["min_r2"]), doc=s.get("doc_column") or None)
+
+
 def parafac_input(corrected: xr.Dataset, settings: dict) -> xr.Dataset:
     """Drop excluded samples; add the split-half stratum coordinate."""
     p = settings["parafac"]
@@ -315,6 +339,127 @@ def fit_final(ds: xr.Dataset, settings: dict, *, progress: Progress | None = Non
     if progress:
         progress("done", 2, 2)
     return model, split
+
+
+# --------------------------------------------------------------------------- #
+# Campaigns, sites and rivers
+# --------------------------------------------------------------------------- #
+
+def sample_table(indices: pd.DataFrame | None, model: xr.Dataset | None = None) -> pd.DataFrame:
+    """Indices and CDOM metrics, plus Fmax and the share of each component if a model is given.
+
+    Samples left out of the model have no Fmax (empty cells).
+    """
+    if indices is None and model is None:
+        raise SettingsError("compute the indices or fit a PARAFAC model first")
+    df = indices.copy() if indices is not None else pd.DataFrame(index=pd.Index(
+        model["sample"].values, name="sample"))
+    if model is not None:
+        fmax = model["fmax"].to_pandas()
+        fmax.columns = [f"C{c}_Fmax" for c in fmax.columns]
+        df = df.drop(columns=[c for c in fmax.columns if c in df]).join(fmax, how="left")
+        if indices is None:
+            for c in reversed([c for c in model.coords if model[c].dims == ("sample",)
+                               and c != "sample" and model[c].dtype == object]):
+                df.insert(0, c, model[c].to_series().reindex(df.index).values)
+    fmax_cols = [c for c in df.columns if re.fullmatch(r"C\d+_Fmax", str(c))]
+    if fmax_cols:
+        comp = K.composition(df, fmax_cols)
+        df = df.drop(columns=[c for c in comp.columns if c in df]).join(comp)
+    return df
+
+
+@dataclass
+class CampaignAnalysis:
+    value: str
+    units: pd.DataFrame
+    design: pd.DataFrame
+    warnings: list[str]
+    kruskal: pd.DataFrame
+    pairwise: pd.DataFrame
+    spatial: pd.DataFrame | None
+    covariates: pd.DataFrame | None
+
+
+def read_table(path: str | Path) -> pd.DataFrame:
+    return pd.read_csv(path, sep=None, engine="python", encoding="utf-8-sig")
+
+
+def campaign_analysis(table: pd.DataFrame, value: str, settings: dict,
+                      base: str | Path | None = None) -> CampaignAnalysis:
+    """Differences of ``value`` between times, along sites and with covariates.
+
+    Uses ``settings["campaigns"]``: ``group``, ``time`` and optionally
+    ``site``, ``position`` (a column of the site table or of ``table``) and
+    the two optional tables (paths relative to ``base``).
+    """
+    c = settings["campaigns"]
+    group, time, site = c.get("group"), c.get("time"), c.get("site") or None
+    if not group or not time:
+        raise SettingsError("campaigns: choose the group column (e.g. river) and the time "
+                            "column (e.g. campaign)")
+    base = Path(base) if base is not None else None
+    keys = {group, time} | ({site} if site else set())
+    numeric = [k for k in table.columns if k not in keys
+               and pd.api.types.is_numeric_dtype(table[k])]
+    if value not in numeric:
+        raise SettingsError(f"campaigns: {value!r} is not a numeric column of the table")
+    units = K.site_means(table.reset_index(), numeric, group=group, time=time, site=site)
+    notes: list[str] = []
+    if c.get("sites_table"):
+        if not site:
+            raise SettingsError("campaigns: a site table needs the site column")
+        units, n = K.join_sites(units, read_table(_resolve(settings, "sites_table", base,
+                                                            "campaigns")), group=group, site=site)
+        notes += n
+    cov_cols: list[str] = []
+    if c.get("covariates_table"):
+        cov = read_table(_resolve(settings, "covariates_table", base, "campaigns"))
+        cov_cols = [k for k in cov.columns if k not in (group, time)
+                    and pd.api.types.is_numeric_dtype(cov[k])]
+        units, n = K.join_covariates(units, cov, group=group, time=time)
+        notes += n
+    kw, pairs = K.compare_times(units, value, group=group, time=time)
+    position = c.get("position")
+    spatial = (K.spatial_trend(units, value, position, group=group, time=time)
+               if position and position in units.columns else None)
+    if position and position not in units.columns:
+        notes.append(f"position column {position!r} not found; no spatial trend")
+    covs = K.covariate_correlations(units, value, cov_cols, group=group) if cov_cols else None
+    return CampaignAnalysis(value, units, K.design_table(units, group=group, time=time),
+                            K.confounding(units, group=group, time=time) + notes, kw, pairs,
+                            spatial, covs)
+
+
+def export_campaigns(out_dir: str | Path, analysis: CampaignAnalysis, settings: dict,
+                     figures: bool = True) -> list[Path]:
+    """Tables (and figures) of one campaign analysis in ``out_dir``."""
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    v = analysis.value
+    written = []
+    for name, df in (("site_means", analysis.units), ("design", analysis.design),
+                     (f"{v}_kruskal", analysis.kruskal), (f"{v}_dunn", analysis.pairwise),
+                     (f"{v}_spatial", analysis.spatial), (f"{v}_covariates", analysis.covariates)):
+        if df is not None and not df.empty:
+            written.append(out / f"{name}.csv")
+            df.to_csv(written[-1], index=name == "design", float_format="%.6g")
+    written.append(out / f"{v}_notes.txt")
+    written[-1].write_text("\n".join([analysis.kruskal.attrs.get("method", "")]
+                                     + analysis.warnings) + "\n", encoding="utf-8")
+    if figures:
+        import matplotlib.pyplot as plt
+
+        from eemkit import plot
+        c = settings["campaigns"]
+        fig = plot.campaign_series(analysis.units, v, group=c["group"], time=c["time"])
+        written += plot.save(fig, out / f"{v}_by_{c['time']}")
+        plt.close(fig)
+        if analysis.spatial is not None:
+            fig = plot.along_sites(analysis.units, v, c["position"], group=c["group"])
+            written += plot.save(fig, out / f"{v}_along_sites")
+            plt.close(fig)
+    return written
 
 
 # --------------------------------------------------------------------------- #

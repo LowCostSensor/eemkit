@@ -1,4 +1,4 @@
-"""Tab 5: write results, OpenFluor file, figures and the processing record."""
+"""Tab 6: write results, OpenFluor file, figures and the processing record."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from eemkit import pipeline
-from eemkit.gui.common import TaskBar, note
+from eemkit.gui.common import TaskBar, note, primary
 from eemkit.gui.state import Project
 from eemkit.parafac.export import METADATA_KEYS
 
@@ -34,7 +34,7 @@ class ExportTab(QWidget):
 
         self.what = {k: QCheckBox(label) for k, label in (
             ("corrected", "Corrected EEMs (netCDF, with processing history)"),
-            ("indices", "Fluorescence indices (CSV)"),
+            ("indices", "Fluorescence indices and CDOM metrics (CSV)"),
             ("exploration", "Exploratory PARAFAC summary (CSV)"),
             ("model", "Final model: Fmax, loadings, OpenFluor file, model (netCDF)"),
             ("figures", "Figures (PDF and PNG)"))}
@@ -58,7 +58,7 @@ class ExportTab(QWidget):
         f.addRow(note("Empty fields are written as '?'. Check the file against the current "
                       "OpenFluor template before uploading."))
 
-        self.b_export = QPushButton("Export to the output folder")
+        self.b_export = primary(QPushButton("Export to the output folder"))
         self.b_export.clicked.connect(self.export)
         self.b_open = QPushButton("Open output folder")
         self.b_open.clicked.connect(self.open_folder)

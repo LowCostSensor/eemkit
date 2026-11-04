@@ -34,6 +34,7 @@ from eemkit.gui.common import (
     TaskBar,
     note,
     pair,
+    primary,
 )
 from eemkit.gui.state import Project
 from eemkit.io.discover import scan_folder, suggest_pairing
@@ -85,7 +86,7 @@ class ProjectTab(QWidget):
         self.b_exclude.clicked.connect(lambda: self.set_include(False))
         self.b_save = QPushButton("Save pairing table")
         self.b_save.clicked.connect(self.save_pairing)
-        self.b_load = QPushButton("3. Check and load data")
+        self.b_load = primary(QPushButton("3. Check and load data"))
         self.b_load.clicked.connect(self.load_data)
         self.b_load.setDefault(True)
         buttons = QHBoxLayout()
