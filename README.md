@@ -24,11 +24,20 @@ step recorded so that an analysis can be repeated exactly.
   path lengths, have no defaults.
 * **Indices**: fluorescence index, humification and biological indices, Coble
   peaks.
+* **CDOM metrics** from the absorbance spectra: a254, a350, spectral slopes
+  S275–295 and S350–400, slope ratio (Helms et al. 2008), E2:E3 and SUVA254,
+  after a baseline correction; values the signal cannot support are left
+  empty with the reason.
 * **PARAFAC** with non-negativity and missing values, random starts, core
   consistency, leverage and residuals, split-half validation (Murphy et al.
   2013) and export to OpenFluor.
-* **Figures** for publication, and a **desktop application** (PySide6) that
-  drives the whole chain without code.
+* **Rivers, sites and dates**: any index, CDOM metric or PARAFAC component
+  compared between sampling campaigns within each river (replicates averaged
+  per site, Kruskal–Wallis and Dunn tests), along the river and against
+  covariates such as discharge or rainfall, with a warning when rivers and
+  dates cannot be separated.
+* **Figures** for publication, and a **desktop application** (PySide6, light
+  and dark themes) that drives the whole chain without code.
 * **Provenance**: data are `xarray` datasets that carry their metadata and the
   full processing history; one settings file drives both scripts and the
   application.
@@ -54,6 +63,16 @@ without the application). Once eemkit is on PyPI this becomes
 `pip install "eemkit[gui]"`. A stand-alone Windows build of the application,
 which needs no Python, will be attached to each
 [release](https://github.com/LowCostSensor/eemkit/releases).
+
+To update an installation made from GitHub to the latest version (a plain
+`--upgrade` is not enough while the version number has not changed):
+
+```bash
+python -m pip install --force-reinstall --no-deps "eemkit @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+```
+
+`python -m pip show eemkit` tells which version is installed; the changes of
+each version are in the [changelog](CHANGELOG.md).
 
 ## Quick start
 

@@ -41,13 +41,25 @@ without the application). Once eemkit is on PyPI this becomes
 which needs no Python, will be attached to each
 [release](https://github.com/LowCostSensor/eemkit/releases).
 
+To update an installation made from GitHub to the latest version (a plain
+`--upgrade` is not enough while the version number has not changed):
+
+```bash
+python -m pip install --force-reinstall --no-deps "eemkit @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+```
+
+`python -m pip show eemkit` tells which version is installed; the changes of
+each version are in the
+[changelog](https://github.com/LowCostSensor/eemkit/blob/main/CHANGELOG.md).
+
 ## Where to start
 
 * [Quick start](quickstart.md): the whole chain from a script.
 * [Desktop application guide](app-guide.md): the same chain without code.
 * [Data model](data_model.md), [Corrections](corrections.md),
-  [Indices](indices.md), [PARAFAC](parafac.md), [Figures](plotting.md): how
-  each step works and which publication it follows.
+  [Indices](indices.md), [CDOM metrics](absorbance.md), [PARAFAC](parafac.md),
+  [Rivers, sites and dates](campaigns.md), [Figures](plotting.md): how each
+  step works and which publication it follows.
 * [API reference](api.md).
 
 ## Validation
