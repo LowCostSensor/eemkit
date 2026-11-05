@@ -30,5 +30,6 @@ First public release.
 * `eemkit.pipeline`: the whole chain driven by one settings file.
 * Desktop application (`eemkit-gui`, PySide6): a sidebar of steps with their
   status, light and dark themes, and a "Rivers and dates" page; a
-  PyInstaller recipe for a stand-alone Windows build.
+  PyInstaller recipe for a stand-alone Windows build, which ships the
+  licence texts of eemkit, Qt and every bundled package.
 * Benchmarked against staRdom 1.1.32 on 205 river-water samples.

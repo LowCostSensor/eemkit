@@ -10,6 +10,9 @@
 # On Windows keep the output path short (--distpath C:\tmp\dist): Qt plugin paths
 # exceed the 260-character limit inside deep folders.
 
+import os
+import sys
+
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
@@ -31,3 +34,9 @@ exe = EXE(
     console=False,
 )
 coll = COLLECT(exe, a.binaries, a.datas, name="eemkit")
+
+# Licence texts of eemkit, Qt and every bundled package, next to eemkit(.exe).
+sys.path.insert(0, SPECPATH)
+from notices import write_notices  # noqa: E402
+
+write_notices(os.path.join(DISTPATH, "eemkit"))
