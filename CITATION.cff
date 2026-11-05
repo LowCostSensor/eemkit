@@ -7,7 +7,7 @@ authors:
     given-names: Riccardo Gaetano
     affiliation: University of Siena
 version: 0.1.0
-date-released: "2026-11-02"
+date-released: "2026-11-05"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/LowCostSensor/eemkit"
 url: "https://lowcostsensor.github.io/eemkit/"

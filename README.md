@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml/badge.svg)](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml)
 [![docs](https://github.com/LowCostSensor/eemkit/actions/workflows/docs.yml/badge.svg)](https://lowcostsensor.github.io/eemkit/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/LowCostSensor/eemkit/blob/main/LICENSE)
 
 Python tools and a desktop application for fluorescence excitation-emission
 matrices (EEMs) of dissolved organic matter: instrument import, corrections,
@@ -45,11 +45,11 @@ step recorded so that an analysis can be repeated exactly.
 ## Install
 
 You need Python 3.11 or later (on Windows, tick *Add python.exe to PATH* when
-installing it). eemkit is not on PyPI yet, so install it from GitHub; the
-`[gui]` part adds the desktop application and the figures:
+installing it). The `[gui]` part adds the desktop application and the
+figures:
 
 ```bash
-python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install "eemkit[gui]"
 ```
 
 Then start the application with:
@@ -59,20 +59,25 @@ python -m eemkit.gui
 ```
 
 For the library alone, leave out `[gui]` (or use `[plot]` for figures
-without the application). Once eemkit is on PyPI this becomes
-`pip install "eemkit[gui]"`. A stand-alone Windows build of the application,
-which needs no Python, will be attached to each
+without the application). A stand-alone Windows build of the application,
+which needs no Python, is attached to each
 [release](https://github.com/LowCostSensor/eemkit/releases).
 
-To update an installation made from GitHub to the latest version (a plain
-`--upgrade` is not enough while the version number has not changed):
+To update to the latest release:
 
 ```bash
-python -m pip install --force-reinstall --no-deps "eemkit @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install --upgrade "eemkit[gui]"
+```
+
+The development version, with changes not yet released, installs from GitHub:
+
+```bash
+python -m pip install --force-reinstall "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
 ```
 
 `python -m pip show eemkit` tells which version is installed; the changes of
-each version are in the [changelog](CHANGELOG.md).
+each version are in the
+[changelog](https://github.com/LowCostSensor/eemkit/blob/main/CHANGELOG.md).
 
 ## Quick start
 
@@ -123,17 +128,19 @@ pytest
 
 Tests that need the real dataset are skipped unless `EEMKIT_TEST_DATA` points
 to its root folder. Contributions and bug reports are welcome: see
-[CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/LowCostSensor/eemkit/blob/main/CONTRIBUTING.md).
 
 ## Citation
 
-If you use eemkit, please cite it (see [CITATION.cff](CITATION.cff); a DOI is
+If you use eemkit, please cite it (see
+[CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff); a DOI is
 issued on Zenodo for every release) and the methods it implements, listed in
 the documentation of each step.
 
 ## License
 
-GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
+GNU General Public License v3.0 or later. See
+[LICENSE](https://github.com/LowCostSensor/eemkit/blob/main/LICENSE).
 
 ## References
 
