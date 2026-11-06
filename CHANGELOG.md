@@ -32,7 +32,8 @@ All notable changes are listed here. Versions follow
   Aqualog "Sample - Blank") must be declared in `project.already_done`: it is
   recorded, never repeated nor skipped silently. Files that do not state the
   instrument's spectral correction are marked "unknown". Tested on the
-  example files of the R package eemR.
+  example files of the R package eemR. In the application, an `Instrument`
+  box on the Project page sets the formats and the steps already done.
 * Diluted samples: optional pairing-table columns `dilution_factor` and
   `abs_dilution_factor`; absorbance rescaled to the EEM's dilution before the
   inner-filter correction (`match_absorbance_dilution`), EEMs multiplied by

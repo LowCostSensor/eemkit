@@ -84,6 +84,19 @@ This page decides which files are read and how they are paired.
 * `Pairing table`: the CSV file with the pairing. `Open…` opens an existing one.
 * `Output folder`: where step 6 writes the results. It cannot be inside the data folder.
 
+### The instrument
+
+The `Instrument` box, on the right of the paths, says which files to read
+(details in [Instruments and formats](instruments.md)):
+
+* `Fluorometer`: Cary Eclipse (default), Horiba Aqualog or Fluoromax, Hitachi F-7000, Shimadzu, or a text matrix.
+* `Absorbance`: Cary 60 (default) or a two-column file (wavelength, absorbance).
+* `Already done by the instrument software`: tick only what the instrument software did before export (blank subtracted, inner filter corrected, Raman units). eemkit records these steps and does not repeat them; a file that says a step was done that is not ticked stops the loading, with the file header in the message.
+* `Shimadzu excitation`: first excitation wavelength and step, which Shimadzu files do not contain (active only for Shimadzu).
+* `Matrix layout`: which of the first row and first column holds the excitation wavelengths (active only for a text matrix).
+
+Changing the instrument drops the data read so far: scan and load again.
+
 ### The buttons, in order
 
 | Button | What it does |

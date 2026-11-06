@@ -9,6 +9,8 @@ import pandas as pd
 from PySide6.QtCore import QSortFilterProxyModel, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
+    QComboBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -31,6 +33,7 @@ from eemkit.gui.common import (
     SUGGESTED,
     ChoiceDelegate,
     DataFrameModel,
+    OptionalFloat,
     TaskBar,
     note,
     pair,
@@ -42,6 +45,19 @@ from eemkit.io.pairing import read_pairing
 
 FILE_KINDS = {"eem_file": "eem", "eem_blank_file": "eem", "abs_file": "absorbance",
               "abs_blank_file": "absorbance"}
+
+#: fluorometer formats shown in the Instrument box (setting value, label)
+INSTRUMENTS = (("cary_eclipse", "Agilent Cary Eclipse (CSV with log)"),
+               ("aqualog", "Horiba Aqualog (.dat)"),
+               ("fluoromax", "Horiba Fluoromax (.dat)"),
+               ("hitachi_f7000", "Hitachi F-7000 (.TXT)"),
+               ("shimadzu", "Shimadzu (.TXT)"),
+               ("matrix_csv", "Text matrix (wavelengths in first row and column)"))
+ABS_FORMATS = (("cary60", "Agilent Cary 60 (CSV with log)"),
+               ("two_column", "Two columns: wavelength, absorbance"))
+#: steps the instrument software may have done (setting value, label)
+DONE_STEPS = (("blank", "Blank subtracted"), ("inner_filter", "Inner filter corrected"),
+              ("raman", "Normalised to Raman units"))
 
 
 def _pairing_colour(row: pd.Series):
@@ -75,6 +91,46 @@ class ProjectTab(QWidget):
                              "data folder."))
         form.addRow("Pairing table", pair(self.pairing_path, b_pair))
         form.addRow("Output folder", pair(self.output_dir, b_out))
+
+        # instrument and file formats
+        self.instrument = QComboBox()
+        for value, label in INSTRUMENTS:
+            self.instrument.addItem(label, value)
+        self.abs_format = QComboBox()
+        for value, label in ABS_FORMATS:
+            self.abs_format.addItem(label, value)
+        self.done = {k: QCheckBox(label) for k, label in DONE_STEPS}
+        self.ex_start = OptionalFloat(placeholder="first excitation (nm)")
+        self.ex_step = OptionalFloat(placeholder="step (nm)")
+        self.orientation = QComboBox()
+        self.orientation.addItem("First row = excitation, first column = emission", "em_rows")
+        self.orientation.addItem("First row = emission, first column = excitation", "ex_rows")
+        inst = QGroupBox("Instrument")
+        f2 = QFormLayout(inst)
+        f2.addRow("Fluorometer", self.instrument)
+        f2.addRow("Absorbance", self.abs_format)
+        done_row = QHBoxLayout()
+        for box in self.done.values():
+            done_row.addWidget(box)
+        done_row.addStretch(1)
+        done_w = QWidget()
+        done_w.setLayout(done_row)
+        done_row.setContentsMargins(0, 0, 0, 0)
+        f2.addRow("Already done by the\ninstrument software", done_w)
+        f2.addRow("", note("Tick only what the instrument software did before export. eemkit "
+                           "records it and does not repeat it; a file that says it was done "
+                           "but is not ticked stops the loading."))
+        self.shimadzu_row = pair(self.ex_start, self.ex_step)
+        f2.addRow("Shimadzu excitation", self.shimadzu_row)
+        f2.addRow("Matrix layout", self.orientation)
+        self.instrument.currentIndexChanged.connect(self.store_instrument)
+        self.abs_format.currentIndexChanged.connect(self.store_instrument)
+        self.orientation.currentIndexChanged.connect(self.store_instrument)
+        for box in self.done.values():
+            box.toggled.connect(self.store_instrument)
+        for edit in (self.ex_start, self.ex_step):
+            edit.editingFinished.connect(self.store_instrument)
+        self._loading = False
 
         self.b_scan = QPushButton("1. Scan data folder")
         self.b_scan.clicked.connect(self.scan)
@@ -136,12 +192,16 @@ class ProjectTab(QWidget):
         split.setStretchFactor(1, 1)
 
         lay = QVBoxLayout(self)
-        lay.addWidget(paths)
+        top = QHBoxLayout()
+        top.addWidget(paths, 1)
+        top.addWidget(inst, 1)
+        lay.addLayout(top)
         lay.addLayout(buttons)
         lay.addWidget(split, 1)
         project.changed.connect(self._on_changed)
         tasks.busy_changed.connect(self._busy)
         self.refresh_paths()
+        self.load_instrument()
 
     # ------------------------------------------------------------------ #
 
@@ -152,6 +212,7 @@ class ProjectTab(QWidget):
     def _on_changed(self, what: str) -> None:
         if what == "settings":
             self.refresh_paths()
+            self.load_instrument()
             path = self.project.resolve("pairing")
             if self.project.pairing is None and path is not None and path.is_file():
                 self._read_pairing(path)
@@ -163,6 +224,56 @@ class ProjectTab(QWidget):
                           ("output_dir", self.output_dir)):
             p = self.project.resolve(key)
             edit.setText(str(p) if p else "")
+
+    def load_instrument(self) -> None:
+        """Show the instrument settings of the project."""
+        s = self.project.settings
+        proj = s["project"]
+        self._loading = True
+        try:
+            for combo, value in ((self.instrument, proj.get("instrument", "cary_eclipse")),
+                                 (self.abs_format, proj.get("absorbance_format", "cary60")),
+                                 (self.orientation,
+                                  s.get("matrix_csv", {}).get("orientation", "em_rows"))):
+                i = combo.findData(value)
+                combo.setCurrentIndex(i if i >= 0 else 0)
+            done = set(proj.get("already_done") or [])
+            for key, box in self.done.items():
+                box.setChecked(key in done)
+            sh = s.get("shimadzu", {})
+            self.ex_start.set_value(sh.get("ex_start"))
+            self.ex_step.set_value(sh.get("ex_step"))
+        finally:
+            self._loading = False
+        self._enable_instrument_fields()
+
+    def _enable_instrument_fields(self) -> None:
+        inst = self.instrument.currentData()
+        self.shimadzu_row.setEnabled(inst == "shimadzu")
+        self.orientation.setEnabled(inst == "matrix_csv")
+
+    def store_instrument(self) -> None:
+        """Write the Instrument box into the settings; the data must be loaded again."""
+        self._enable_instrument_fields()
+        if self._loading:
+            return
+        s = self.project.settings
+        new = {"instrument": self.instrument.currentData(),
+               "absorbance_format": self.abs_format.currentData(),
+               "already_done": [k for k, box in self.done.items() if box.isChecked()]}
+        sh = {"ex_start": self.ex_start.value(), "ex_step": self.ex_step.value()}
+        mc = {"orientation": self.orientation.currentData()}
+        old = ({k: s["project"].get(k) for k in new}, dict(s.get("shimadzu", {})),
+               dict(s.get("matrix_csv", {})))
+        if old == (new, sh, mc):
+            return
+        s["project"].update(new)
+        s["shimadzu"] = sh
+        s["matrix_csv"] = mc
+        self.project.dirty = True
+        self.project.invalidate("raw")
+        self.project.inventory = None
+        self.files_model.set_frame(pd.DataFrame())
 
     def say(self, text: str) -> None:
         self.messages.appendPlainText(text)

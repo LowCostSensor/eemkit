@@ -215,6 +215,41 @@ def test_changing_settings_drops_dependent_results():
     assert p.exploration is None and p.model is None
 
 
+def test_instrument_box(qtbot, window, dialogs, tmp_path):
+    """Choosing an instrument writes the settings, and the scan uses it."""
+    import shutil
+    from pathlib import Path
+
+    w, p, tab = window, window.project, window.project_tab
+    assert tab.instrument.currentData() == "cary_eclipse" and not tab.shimadzu_row.isEnabled()
+    data = tmp_path / "data"
+    data.mkdir()
+    shutil.copy(Path(__file__).parent / "data" / "eemR" / "aqualog" / "sample4.dat",
+                data / "s1.dat")
+    (data / "s1.txt").write_text("\n".join(f"{w} 0.1" for w in range(200, 901)))
+    p.set_path_setting("data_root", data)
+    p.changed.emit("settings")
+    p.raw = object()  # placeholder result: must be dropped when the instrument changes
+    tab.instrument.setCurrentIndex(tab.instrument.findData("aqualog"))
+    tab.abs_format.setCurrentIndex(tab.abs_format.findData("two_column"))
+    tab.done["blank"].setChecked(True)
+    tab.done["raman"].setChecked(True)
+    proj = p.settings["project"]
+    assert proj["instrument"] == "aqualog" and proj["absorbance_format"] == "two_column"
+    assert proj["already_done"] == ["blank", "raman"] and p.raw is None and p.dirty
+    tab.scan()
+    _idle(qtbot, w)
+    assert dict(zip(p.inventory["file"], p.inventory["kind"], strict=True)) == {
+        "s1.dat": "eem", "s1.txt": "absorbance"}
+    tab.instrument.setCurrentIndex(tab.instrument.findData("shimadzu"))
+    assert tab.shimadzu_row.isEnabled() and not tab.orientation.isEnabled()
+    tab.scan()  # no excitation wavelengths set: refused with a message
+    assert any("shimadzu.ex_start" in str(m) for _, m in dialogs)
+    p.settings["project"]["instrument"] = "fluoromax"  # e.g. a project file opened
+    p.changed.emit("settings")
+    assert tab.instrument.currentData() == "fluoromax"
+
+
 def test_output_inside_data_folder_is_refused(window, tmp_path):
     p = window.project
     p.set_path_setting("data_root", tmp_path / "data")

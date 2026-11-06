@@ -29,9 +29,10 @@ does not have the structure of the chosen format is refused with the reason.
 The Aqualog and Fluoromax matrices have the same layout, so for them only the
 structure can be checked: choose the instrument that produced the files.
 
-The folder scan of the application (`Scan folder`) uses the same setting: it
-reads the files with the instrument's suffixes (`.dat`, `.TXT`, `.csv`) and
-classifies them as EEM or absorbance.
+In the application the same settings are in the `Instrument` box of the
+Project page. The folder scan (`Scan data folder`) uses them: it reads the
+files with the instrument's suffixes (`.dat`, `.TXT`, `.csv`) and classifies
+them as EEM or absorbance.
 
 ## Processing already done by the instrument software
 
