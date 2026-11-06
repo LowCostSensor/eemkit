@@ -3,7 +3,12 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.2.0 (2026-11-06)
+
+Other fluorometers, diluted samples, zap, PARAFAC model comparison and
+diagnostics, new samples on a fitted model, an HTML report and a command
+line; benchmarked against drEEM as well as staRdom. One result changes: core
+consistency is now computed as in drEEM (first item).
 
 * **Changed: core consistency is now computed as the N-way toolbox's
   `corcond` (the copy used by drEEM)**: loading vectors of each component
@@ -15,6 +20,9 @@ All notable changes are listed here. Versions follow
   3 components: 75.0 % instead of 85.5 %) and no longer strongly negative for
   overfactored ones; EEMqual changes with them. The models themselves do not
   change. Rank-1 models are now computed too, instead of set to 100.
+* Application: the window no longer grows wider than the screen once a final
+  PARAFAC model is shown (its summary line now wraps); it fits a 1366-pixel
+  wide laptop screen.
 * Benchmark of the PARAFAC fit against drEEM 2.26.03 (N-way and parafac3w
   engines) on the Ombrone data: same model, Tucker congruence ≥ 0.9999.
 

@@ -26,23 +26,35 @@ step recorded so that an analysis can be repeated exactly.
   (optional), absorbance blank, inner-filter effect (Kothawala et al. 2013),
   blank subtraction, Raman units (Lawaetz & Stedmon 2009), Rayleigh and Raman
   scatter removal, crop. Values that depend on the measurement, such as cuvette
-  path lengths, have no defaults.
+  path lengths, have no defaults. Diluted samples are handled (absorbance
+  rescaled to the EEM's dilution, EEMs multiplied back after Raman units), and
+  regions to discard can be zapped; both are recorded.
 * **Indices**: fluorescence index, humification and biological indices, Coble
   peaks.
 * **CDOM metrics** from the absorbance spectra: a254, a350, spectral slopes
   S275–295 and S350–400, slope ratio (Helms et al. 2008), E2:E3 and SUVA254,
   after a baseline correction; values the signal cannot support are left
   empty with the reason.
-* **PARAFAC** with non-negativity and missing values, random starts, core
-  consistency, leverage and residuals, split-half validation (Murphy et al.
-  2013) and export to OpenFluor.
+* **PARAFAC** with non-negativity and missing values, random starts run in
+  parallel, split-half validation (Murphy et al. 2013) and export to
+  OpenFluor. Models are judged by core consistency (computed as in drEEM),
+  shift- and shape-sensitive congruence (Wünsch et al. 2019) and EEMqual (Bro
+  & Vidal 2011); models and ranks can be compared component by component.
+* **Outliers**: leverage, residuals by sample and by wavelength, and residual
+  EEMs of the worst-fitted samples.
+* **New samples** can be scored on a fitted model with its spectra fixed;
+  samples the model describes worse than any of its own are flagged.
 * **Rivers, sites and dates**: any index, CDOM metric or PARAFAC component
   compared between sampling campaigns within each river (replicates averaged
   per site, Kruskal–Wallis and Dunn tests), along the river and against
   covariates such as discharge or rainfall, with a warning when rivers and
   dates cannot be separated.
 * **Figures** for publication, and a **desktop application** (PySide6, light
-  and dark themes) that drives the whole chain without code.
+  and dark themes) that drives the whole chain without code; the same chain
+  also runs from the command line (`eemkit run project.toml`).
+* **Report**: the whole analysis on one self-contained HTML page (samples,
+  processing history, indices, PARAFAC exploration, final model, validation,
+  outliers, settings).
 * **Provenance**: data are `xarray` datasets that carry their metadata and the
   full processing history; one settings file drives both scripts and the
   application.

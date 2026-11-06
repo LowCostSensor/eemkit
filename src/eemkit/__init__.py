@@ -1,6 +1,6 @@
 """eemkit: EEM processing and PARAFAC modelling of dissolved organic matter fluorescence."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from eemkit import corrections, indices, parafac, pipeline
 from eemkit.core.dataset import stack

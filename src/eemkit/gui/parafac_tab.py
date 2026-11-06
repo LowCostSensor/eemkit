@@ -165,6 +165,8 @@ class ParafacTab(QWidget):
         self.final_plot = PlotPanel()
         self.final_text = QLabel("")
         self.final_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        # one long line: wrapped, or it alone makes the window wider than a laptop screen
+        self.final_text.setWordWrap(True)
         page_final = QWidget()
         v = QVBoxLayout(page_final)
         v.addWidget(self.final_text)

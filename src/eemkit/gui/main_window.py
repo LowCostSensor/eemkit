@@ -47,7 +47,7 @@ Every result can be reproduced from the saved project file with
 <code>eemkit.pipeline</code>.<br><br>
 Methods: inner filter, Kothawala et al. 2013; Raman units, Lawaetz &amp; Stedmon 2009;
 PARAFAC and split-half validation, Murphy et al. 2013; core consistency,
-Bro &amp; Kiers 2003."""
+Bro &amp; Kiers 2003, computed as the N-way toolbox (Andersson &amp; Bro 2000)."""
 
 #: Choices of the View > EEM colours menu (names of eemkit.plot.COLORMAPS).
 EEM_COLOURS = {"eclipse": "Cary Eclipse (violet, blue, green, yellow, red)",

@@ -60,6 +60,10 @@ each version are in the
 
 * [Quick start](quickstart.md): the whole chain from a script.
 * [Desktop application guide](app-guide.md): the same chain without code.
+* [Command line](cli.md): the same chain from a terminal, with an HTML
+  report.
+* [Instruments and file formats](instruments.md): Cary Eclipse, Aqualog,
+  Fluoromax, Hitachi F-7000, Shimadzu and plain matrices.
 * [Data model](data_model.md), [Corrections](corrections.md),
   [Indices](indices.md), [CDOM metrics](absorbance.md), [PARAFAC](parafac.md),
   [Rivers, sites and dates](campaigns.md), [Figures](plotting.md): how each
