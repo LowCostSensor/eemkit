@@ -47,6 +47,8 @@ from eemkit import corrections as C
 from eemkit import indices as I
 from eemkit import parafac as P
 from eemkit.core.history import get_history
+from eemkit.corrections.dilution import has_dilution_columns
+from eemkit.corrections.zap import ZAP_VAR
 from eemkit.errors import Cancelled, SettingsError
 from eemkit.io.loader import load_dataset
 from eemkit.io.pairing import read_pairing
@@ -69,6 +71,10 @@ DEFAULTS: dict = {
                 "rayleigh2": [10.0, 10.0], "raman2": [10.0, 10.0],
                 "zero_below_rayleigh": None, "interpolate": False},
     "crop": {"ex_min": None, "ex_max": None, "em_min": None, "em_max": None},
+    # Regions removed by hand after Raman units: [{sample, ex = [lo, hi], em = [lo, hi],
+    # reason}], empty range = whole range. interpolate: false, or "em" / "ex" / "both"
+    # to fill them like the scatter bands (indices never use filled values).
+    "zap": {"regions": [], "interpolate": False},
     "indices": {"ex_method": "linear", "bix_em_den": 430.0},
     # CDOM metrics. Baseline: mean absorbance 680-700 nm subtracted (Green & Blough 1994;
     # Helms et al. 2008). min_r2: eemkit quality threshold for the log-linear slope fits,
@@ -122,6 +128,9 @@ def _toml_value(v) -> str:
         return json.dumps(v, ensure_ascii=False)
     if isinstance(v, list | tuple):
         return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    if isinstance(v, dict):  # inline table, e.g. one zap region
+        return "{" + ", ".join(f"{k} = {_toml_value(x)}" for k, x in v.items()
+                               if x is not None) + "}"
     raise TypeError(f"cannot write {type(v).__name__} to TOML")
 
 
@@ -188,7 +197,9 @@ def load(settings: dict, base: str | Path | None = None) -> xr.Dataset:
 def correct_until_raman(ds: xr.Dataset, settings: dict,
                         base: str | Path | None = None) -> xr.Dataset:
     """Spectral correction (if factor files are set), absorbance blank, inner
-    filter, EEM blank and Raman units. Factor files are relative to ``base``."""
+    filter, EEM blank and Raman units; then dilution (when the pairing table
+    has dilution columns) and the regions of ``zap.regions``. Factor files are
+    relative to ``base``."""
     l_abs = _required(settings, "inner_filter", "absorbance_path_length_cm")
     l_fl = _required(settings, "inner_filter", "fluorescence_path_length_cm")
     missing = settings["missing"]["policy"]
@@ -203,12 +214,21 @@ def correct_until_raman(ds: xr.Dataset, settings: dict,
             em_factors=_resolve(settings, "em_factors", base, "spectral"),
             convention=sp.get("convention", "multiply"))
     ds = C.subtract_absorbance_blank(ds, missing=missing)
+    diluted = has_dilution_columns(ds)
+    if diluted:
+        ds = C.match_absorbance_dilution(ds)
     ds = C.correct_inner_filter(ds, absorbance_path_length_cm=l_abs,
                                 fluorescence_path_length_cm=l_fl, missing=missing)
     ds = C.subtract_blank(ds, missing=missing)
     r = settings["raman"]
-    return C.normalize_raman(ds, ex=float(r["ex"]), em_range=tuple(r["em_range"]),
-                             baseline=bool(r["baseline"]), missing=missing)
+    ds = C.normalize_raman(ds, ex=float(r["ex"]), em_range=tuple(r["em_range"]),
+                           baseline=bool(r["baseline"]), missing=missing)
+    if diluted:
+        ds = C.correct_dilution(ds)
+    regions = settings.get("zap", {}).get("regions") or []
+    if regions:
+        ds = C.zap(ds, regions)
+    return ds
 
 
 def finish_corrections(ds: xr.Dataset, settings: dict) -> xr.Dataset:
@@ -217,8 +237,18 @@ def finish_corrections(ds: xr.Dataset, settings: dict) -> xr.Dataset:
     widths = {b: tuple(s[b]) for b in C.scatter.BANDS if s.get(b)}
     ds = C.remove_scatter(ds, widths=widths, raman_shift_cm1=float(s["raman_shift_cm1"]),
                           zero_below_rayleigh=s.get("zero_below_rayleigh"))
-    if s.get("interpolate"):
-        ds = C.interpolate_missing(ds, method=s["interpolate"])
+    zapped = ds[ZAP_VAR] if ZAP_VAR in ds else None
+    zap_fill = settings.get("zap", {}).get("interpolate") or False
+    if zap_fill and zap_fill not in C.scatter.INTERP_METHODS:
+        raise SettingsError(f"zap.interpolate must be false or one of "
+                            f"{C.scatter.INTERP_METHODS}, got {zap_fill!r}")
+    if s.get("interpolate"):  # the scatter bands; zapped cells only if zap.interpolate
+        ds = C.interpolate_missing(
+            ds, method=s["interpolate"],
+            only=~zapped if zapped is not None else None,
+            what="scatter (not the zapped regions)" if zapped is not None else "all")
+    if zapped is not None and zap_fill:
+        ds = C.interpolate_missing(ds, method=zap_fill, only=zapped, what="zapped regions")
     c = settings["crop"]
     ex = (c.get("ex_min"), c.get("ex_max"))
     em = (c.get("em_min"), c.get("em_max"))
@@ -491,11 +521,14 @@ def export_results(
     split: xr.Dataset | None = None,
     openfluor: dict | None = None,
     figures: bool = True,
+    report: bool = False,
 ) -> list[Path]:
     """Write whatever results are given; returns the paths written.
 
     Always writes ``settings.toml`` and ``processing_record.json`` (versions,
-    processing history, sample list) so the run can be repeated.
+    processing history, sample list) so the run can be repeated. With
+    ``report=True`` also ``report.html`` (:func:`eemkit.report.write_report`);
+    figures and report need matplotlib.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -536,6 +569,12 @@ def export_results(
             record["parafac"]["split_half_validated"] = bool(split.attrs["validated"])
     if figures:
         written += export_figures(out / "figures", settings, exploration, model, split)
+    if report:
+        from eemkit.report import write_report
+
+        written.append(write_report(out / "report.html", settings, corrected=corrected,
+                                    indices=indices, exploration=exploration, model=model,
+                                    split=split))
 
     written.append(out / "processing_record.json")
     written[-1].write_text(json.dumps(record, indent=2, default=str), encoding="utf-8")

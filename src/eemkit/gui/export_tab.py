@@ -37,7 +37,8 @@ class ExportTab(QWidget):
             ("indices", "Fluorescence indices and CDOM metrics (CSV)"),
             ("exploration", "Exploratory PARAFAC summary (CSV)"),
             ("model", "Final model: Fmax, loadings, OpenFluor file, model (netCDF)"),
-            ("figures", "Figures (PDF and PNG)"))}
+            ("figures", "Figures (PDF and PNG)"),
+            ("report", "Report of the whole analysis (report.html)"))}
         g_what = QGroupBox("Write")
         v = QVBoxLayout(g_what)
         for box in self.what.values():
@@ -128,6 +129,12 @@ class ExportTab(QWidget):
             if w["figures"]:  # matplotlib stays in the GUI thread
                 paths += pipeline.export_figures(out / "figures", settings, args["exploration"],
                                                  args["model"], args["split"])
+            if w["report"]:
+                from eemkit.report import write_report
+
+                paths.append(write_report(out / "report.html", settings, corrected=p.corrected,
+                                          indices=p.indices, exploration=p.exploration,
+                                          model=p.model, split=p.split))
             self.log.appendPlainText(f"Wrote {len(paths)} files to {out}:")
             for path in paths:
                 self.log.appendPlainText(f"  {path.relative_to(out)}")

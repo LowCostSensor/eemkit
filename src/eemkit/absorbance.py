@@ -99,6 +99,20 @@ def spectral_slope(a: np.ndarray, wl: np.ndarray, lo: float, hi: float,
     return float(-slope), r2, ""
 
 
+def undiluted_factor(ds: xr.Dataset) -> np.ndarray:
+    """Factor that turns ``ds["absorbance"]`` into the absorbance of the undiluted sample.
+
+    After :func:`eemkit.corrections.match_absorbance_dilution` the absorbance
+    refers to the EEM's dilution (coordinate ``absorbance_dilution``);
+    otherwise to the ``abs_dilution_factor`` column (1 when absent).
+    """
+    from eemkit.corrections.dilution import ABS_COLUMN, ABS_REFERS_TO, dilution_factors
+
+    if ABS_REFERS_TO in ds.coords:
+        return np.asarray(ds[ABS_REFERS_TO].values, dtype=float)
+    return dilution_factors(ds, ABS_COLUMN)
+
+
 def compute_absorbance_metrics(
     ds: xr.Dataset,
     *,
@@ -156,6 +170,9 @@ def compute_absorbance_metrics(
     path_m = absorbance_path_length_cm / 100.0
 
     A = baseline_corrected(ds["absorbance"].transpose("sample", "wavelength"), baseline)
+    # diluted samples: report the undiluted sample (slopes, SR and E2:E3 do not change)
+    dil = undiluted_factor(ds)
+    A = A * xr.DataArray(dil, dims="sample")
     wl = A["wavelength"].values
     rows, notes = [], []
     for i in range(A.sizes["sample"]):
@@ -209,6 +226,8 @@ def compute_absorbance_metrics(
                    "fit": "linear least squares of ln a (Helms et al. 2008)",
                    "min_r2": min_r2},
         "E2_E3_nm": list(e2_e3),
+        "dilution": "absorbance multiplied by the dilution it refers to (undiluted sample)"
+        if np.any(dil != 1) else "none",
         "SUVA254": {"doc_column": doc, "units": "L mg^-1 m^-1",
                     "reference": "Weishaar et al. 2003"} if doc else None,
         "processing_history": get_history(ds),

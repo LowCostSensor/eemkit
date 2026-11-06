@@ -51,6 +51,7 @@ def test_run_writes_the_results_next_to_the_project(project, capsys):
     out = project.parent / "out"
     assert (out / "parafac_2comp_fmax.csv").is_file()
     assert (out / "parafac_exploration.csv").is_file()
+    assert (out / "report.html").is_file()  # the report is written even without figures
     indices = pd.read_csv(out / "indices.csv", index_col=0)
     assert {"HIX", "a254", "SR"} <= set(indices.columns)
     assert "split-half" in capsys.readouterr().out

@@ -19,6 +19,7 @@ from eemkit.parafac.model import (
     residuals,
     summary_table,
 )
+from eemkit.parafac.outliers import sample_diagnostics, spectral_residuals
 from eemkit.parafac.validation import split_groups, split_half
 
 __all__ = [
@@ -35,7 +36,9 @@ __all__ = [
     "nn_parafac",
     "project_samples",
     "residuals",
+    "sample_diagnostics",
     "shift_shape_congruence",
+    "spectral_residuals",
     "split_groups",
     "split_half",
     "summary_table",

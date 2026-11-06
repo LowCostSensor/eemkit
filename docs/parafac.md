@@ -87,6 +87,28 @@ and which split. `component_correlations(model)` gives the Spearman (or
 Pearson) correlation of the components' Fmax: two components that always vary
 together may be one source split in two.
 
+## Outlier diagnostics
+
+```python
+eemkit.parafac.sample_diagnostics(model)          # leverage, residual, ranks per sample
+sr = eemkit.parafac.spectral_residuals(model, ds) # residual by excitation and emission
+eemkit.plot.residual_eems(model, ds)              # measured, model, residual EEMs
+eemkit.plot.spectral_residuals(sr)
+```
+
+Murphy et al. (2013) inspect every model for samples with high leverage
+(they pull the model towards themselves) and for samples or wavelengths with
+large residuals (the model does not describe them). `sample_diagnostics`
+lists the samples with their leverage, residual sum of squares and relative
+residual (residual / data sum of squares, comparable between samples of
+different intensity), with the samples to inspect first at the top.
+`residual_eems` shows, for the worst-fitted samples, the measured EEM, the
+model and the residual: a peak left in the residual is fluorescence the model
+does not have; a band along the scatter lines is scatter not fully removed.
+`spectral_residuals` sums the residuals over samples for each wavelength, so a
+wavelength fitted badly in every sample stands out. No threshold is applied:
+which samples to remove is a decision to make looking at them, and to report.
+
 ## Applying a model to new samples
 
 ```python

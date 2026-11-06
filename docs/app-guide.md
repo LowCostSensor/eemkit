@@ -111,6 +111,8 @@ This page decides which files are read and how they are paired.
 * **Double-click** a cell to edit it. In the file columns (`eem_file`, `eem_blank_file`, `abs_file`, `abs_blank_file`) a list opens with the files of the right kind found by the scan.
 * The `Filter rows…` box filters on every column (for example `Merse_2024-07`). Clicking a column header sorts by that column.
 * Extra columns (river, campaign, site, replicate, notes…) become sample metadata: you find them again in the indices and in the groupings.
+* Diluted samples: add the columns `dilution_factor` (EEM) and `abs_dilution_factor` (absorbance), final volume / sample volume, empty = undiluted. The corrections then report the undiluted sample; see [Diluted samples](corrections.md#diluted-samples).
+* Regions to remove by hand (spikes, bad scans) are listed in the `[zap]` section of the project file; see [zap](corrections.md#removing-bad-data-by-hand-zap). The application does not edit them yet: it applies those in the file.
 
 ## 2 · Corrections
 
@@ -300,6 +302,7 @@ Compares campaigns, sites and rivers for any variable of the indices table or of
 | `parafac_3comp_openfluor.txt` | File for OpenFluor. Check it against the current upload template before submitting it. |
 | `parafac_3comp_model.nc` | The complete model. |
 | `figures/` | Number-of-components diagnostics, components and leverage, as PDF and PNG, in the colours chosen in `View` → `EEM colours`. |
+| `report.html` | One page with the whole analysis: samples, every processing step, indices, the exploratory models, the final model with its validation, outlier diagnostics (residual EEMs of the worst-fitted samples, residuals by wavelength) and the settings. The figures are inside the page, so it can be e-mailed or archived as it is. |
 
 The `3` in the names is the number of components of the final model.
 

@@ -35,7 +35,8 @@ Runs the whole chain in the order of the application:
    split-half validation (the table is printed);
 5. the final model, if `parafac.final.rank` is set;
 6. the export: corrected EEMs, indices, models, OpenFluor file, figures,
-   settings and processing record.
+   `report.html` (the whole analysis on one page), settings and processing
+   record.
 
 | Option | Meaning |
 | --- | --- |
@@ -43,6 +44,7 @@ Runs the whole chain in the order of the application:
 | `-j`, `--jobs N` | PARAFAC random starts run at the same time; default every processor. The result does not depend on it. |
 | `--no-explore` | Skip the exploratory models and fit only `parafac.final.rank`. |
 | `--no-figures` | Do not write figures (they need matplotlib: `pip install "eemkit[plot]"`). |
+| `--no-report` | Do not write `report.html` (it also needs matplotlib). |
 
 Paths in the project file are relative to the folder that contains it.
 Warnings are printed as they occur; an error stops the run with exit status 1

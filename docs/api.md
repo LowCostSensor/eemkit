@@ -26,9 +26,12 @@
         - apply_spectral_correction
         - read_correction_file
         - subtract_absorbance_blank
+        - match_absorbance_dilution
         - correct_inner_filter
         - subtract_blank
         - normalize_raman
+        - correct_dilution
+        - zap
         - raman_area
         - remove_scatter
         - interpolate_missing
@@ -76,6 +79,10 @@
     options:
       show_root_toc_entry: false
 
+::: eemkit.parafac.outliers
+    options:
+      show_root_toc_entry: false
+
 ::: eemkit.parafac.diagnostics
     options:
       show_root_toc_entry: false
@@ -99,6 +106,10 @@
 ::: eemkit.plot
     options:
       show_root_toc_entry: false
+
+## Report
+
+::: eemkit.report.write_report
 
 ## Command line
 

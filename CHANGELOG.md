@@ -21,6 +21,21 @@ All notable changes are listed here. Versions follow
   fixed, with a flag for samples the model describes worse than any of its
   own.
 * PARAFAC models store each sample's data sum of squares (`data_sumsq`).
+* Outlier diagnostics: `sample_diagnostics` (leverage, relative residual and
+  ranks per sample), `spectral_residuals` (residual by wavelength), and the
+  figures `plot.residual_eems` and `plot.spectral_residuals`.
+* Diluted samples: optional pairing-table columns `dilution_factor` and
+  `abs_dilution_factor`; absorbance rescaled to the EEM's dilution before the
+  inner-filter correction (`match_absorbance_dilution`), EEMs multiplied by
+  their dilution after Raman units (`correct_dilution`), CDOM metrics
+  reported for the undiluted sample.
+* `zap`: regions listed in the project file (`[zap]`) set to NaN after Raman
+  units and recorded in the history; optional interpolation separate from the
+  scatter bands (`interpolate_missing(only=...)`).
+* `report.html`: the whole analysis on one self-contained page (samples,
+  processing history, indices, exploration, final model, validation, outlier
+  diagnostics, settings), from `eemkit.report.write_report`, the export
+  (`report=True`), the command line and the application's Export page.
 
 ## 0.1.0 (2026-11-05)
 

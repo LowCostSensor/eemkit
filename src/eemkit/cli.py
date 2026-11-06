@@ -173,21 +173,22 @@ def run(args: argparse.Namespace) -> int:
     else:
         step("no final model: set parafac.final.rank after looking at the exploration")
 
-    figures = not args.no_figures
-    if figures:
+    figures, report = not args.no_figures, not args.no_report
+    if figures or report:
         try:
             import matplotlib
 
             matplotlib.use("Agg")
         except ImportError:
-            step("matplotlib is not installed: figures skipped (pip install \"eemkit[plot]\")")
-            figures = False
+            step("matplotlib is not installed: figures and report skipped "
+                 "(pip install \"eemkit[plot]\")")
+            figures = report = False
     meta = settings["parafac"]["final"].get("openfluor", {}) or {}
     step(f"writing results to {out}")
     paths = pipeline.export_results(out, settings, corrected=corrected, indices=indices,
                                     exploration=exploration, model=model, split=split,
                                     openfluor={k: v for k, v in meta.items() if v},
-                                    figures=figures)
+                                    figures=figures, report=report)
     step(f"done: {len(paths)} files")
     return 0
 
@@ -211,6 +212,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--no-explore", action="store_true",
                    help="skip the exploratory models; fit only parafac.final.rank")
     r.add_argument("--no-figures", action="store_true", help="do not write figures")
+    r.add_argument("--no-report", action="store_true", help="do not write report.html")
     r.set_defaults(func=run)
     return parser
 

@@ -137,6 +137,8 @@ def interpolate_missing(
     *,
     method: str,
     variables: tuple[str, ...] = ("intensity",),
+    only: xr.DataArray | None = None,
+    what: str = "all",
 ) -> xr.Dataset:
     """Fill NaN gaps in each EEM by linear interpolation between measured points.
 
@@ -146,6 +148,11 @@ def interpolate_missing(
         ``"em"``: along emission within each excitation scan; ``"ex"``: along
         excitation at each emission wavelength; ``"both"``: mean of the two
         estimates where both exist, otherwise whichever exists.
+    only
+        Boolean (sample, ex, em): fill only these cells, leave the other gaps
+        missing (e.g. only the scatter bands, not the zapped regions).
+    what
+        Label of the filled cells, recorded in the history.
 
     Notes
     -----
@@ -176,6 +183,8 @@ def interpolate_missing(
                 new = np.where(np.isfinite(along_em) & np.isfinite(along_ex),
                                (along_em + along_ex) / 2,
                                np.where(np.isfinite(along_em), along_em, along_ex))
+        if only is not None:
+            new = np.where(only.transpose(*da.dims).values.astype(bool), new, vals)
         gap_before = np.isnan(vals).reshape(-1, ex.size * em.size).sum(axis=1)
         gap_after = np.isnan(new).reshape(-1, ex.size * em.size).sum(axis=1)
         vals = new
@@ -187,5 +196,8 @@ def interpolate_missing(
         if name == "intensity" and "sample" in da.dims:
             out = out.assign_coords(n_interpolated=("sample", filled),
                                     n_still_missing=("sample", left))
-    return with_history(out, step, method=method, variables=list(variables),
+    params = {"method": method, "variables": list(variables)}
+    if only is not None:
+        params["cells"] = what
+    return with_history(out, step, **params,
                         total_interpolated={k: int(sum(v)) for k, v in counts.items()})

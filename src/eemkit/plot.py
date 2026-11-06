@@ -48,6 +48,10 @@ _ECLIPSE = ("#4b0f8c", "#2a3bd6", "#1c9be6", "#22b14c", "#b5d334", "#f5e31a", "#
 ECLIPSE = LinearSegmentedColormap.from_list("eemkit_eclipse", _ECLIPSE)
 #: EEM colour maps by the names used in settings files.
 COLORMAPS = {"blues": SEQUENTIAL, "eclipse": ECLIPSE}
+#: Diverging colour map for residuals (blue = model above data, orange = below, white = 0).
+DIVERGING = LinearSegmentedColormap.from_list(
+    "eemkit_diverging", ("#0d366b", "#3987e5", "#cde2fb", "#ffffff", "#fbd5c0", "#eb6834",
+                         "#8a3110"))
 
 #: Figure widths (inches) for one and two journal columns (85 and 180 mm).
 SINGLE_COLUMN, DOUBLE_COLUMN = 85 / 25.4, 180 / 25.4
@@ -335,6 +339,91 @@ def leverage(model: xr.Dataset, *, by: str | None = None, n_label: int = 5,
                       for i in np.argsort(-score)[:n_label]])
         if by:
             fig.legend(loc="outside upper center", ncols=len(_groups(groups)))
+    return fig
+
+
+def residual_eems(model: xr.Dataset, ds: xr.Dataset, samples: Sequence[str] | None = None, *,
+                  n: int = 3, variable: str = "intensity", width: float = DOUBLE_COLUMN,
+                  cmap="blues"):
+    """Measured, modelled and residual EEM of a few samples (one column each).
+
+    Default: the ``n`` samples with the highest relative residual
+    (:func:`eemkit.parafac.sample_diagnostics`). Measured and modelled share
+    one colour scale per sample; the residual (data - model) uses a diverging
+    scale centred on 0, so structure left in it (a peak, a scatter band) shows
+    what the model misses.
+    """
+    from eemkit.parafac.model import model_eem
+    from eemkit.parafac.outliers import sample_diagnostics
+
+    if samples is None:
+        samples = list(sample_diagnostics(model).sort_values(
+            "relative_sse", ascending=False).index[:n])
+    samples = [str(s) for s in samples]
+    names = [str(s) for s in model["sample"].values]
+    missing = [s for s in samples if s not in names]
+    if missing:
+        raise ValueError(f"samples not in the model: {missing}")
+    data = ds[variable].transpose("sample", "ex", "em").sel(
+        sample=[model["sample"].values[names.index(s)] for s in samples],
+        ex=model["ex"].values, em=model["em"].values)
+    fit = model_eem(model).sel(sample=data["sample"].values)
+    units = data.attrs.get("units", "")
+    k = len(samples)
+    with style():
+        fig, axes = plt.subplots(3, k, figsize=(width, width / max(k, 2) * 2.4), squeeze=False,
+                                 layout="constrained")
+        for j in range(k):
+            meas = data.isel(sample=j)
+            mod = fit.isel(sample=j).where(np.isfinite(meas))
+            vmax = float(np.nanmax(meas.values))
+            for i, (da, title) in enumerate(((meas, "measured"), (mod, "model"))):
+                cs = eem(axes[i, j], da, vmax=vmax, colorbar=(j == k - 1), label=units,
+                         cmap=cmap)
+                axes[i, j].set_title(f"{samples[j]}: {title}" if i == 0 else title, loc="left")
+            res = (meas - mod).transpose("ex", "em")
+            lim = float(np.nanmax(np.abs(res.values))) or 1.0
+            ax = axes[2, j]
+            ax.set_facecolor(MISSING)
+            cs = ax.contourf(res["em"], res["ex"], res.values, cmap=DIVERGING,
+                             levels=np.linspace(-lim, lim, 17), extend="both")
+            ax.set_title(f"residual (max |r| = {lim:.3g})", loc="left")
+            ax.set_xlabel("Emission (nm)")
+            ax.set_ylabel("Excitation (nm)")
+            if j == k - 1:
+                add_colorbar(cs, ax, units)
+            for i in range(3):
+                if j:
+                    axes[i, j].set_ylabel("")
+                if i < 2:
+                    axes[i, j].set_xlabel("")
+    return fig
+
+
+def spectral_residuals(residuals: xr.Dataset, *, width: float = DOUBLE_COLUMN):
+    """Relative residual and mean residual against excitation and emission wavelength.
+
+    ``residuals`` is the output of :func:`eemkit.parafac.spectral_residuals`.
+    A wavelength with a high relative residual or a mean residual far from 0
+    is fitted badly in every sample: often a scatter band not fully removed,
+    or the edge of the instrument's range.
+    """
+    units = residuals.attrs.get("units", "")
+    with style():
+        fig, axes = plt.subplots(2, 2, figsize=(width, width * 0.55), layout="constrained",
+                                 sharex="col")
+        for j, (mode, label) in enumerate((("ex", "Excitation"), ("em", "Emission"))):
+            wl = residuals[mode].values
+            axes[0, j].plot(wl, residuals[f"relative_sse_{mode}"], color=_colour(j))
+            axes[0, j].set_title(f"{label}: residual / data sum of squares", loc="left")
+            axes[0, j].set_ylim(bottom=0)
+            axes[1, j].axhline(0, color=AXIS, lw=0.8)
+            axes[1, j].plot(wl, residuals[f"bias_{mode}"], color=_colour(j))
+            axes[1, j].set_title(f"{label}: mean residual (data − model)", loc="left")
+            axes[1, j].set_xlabel(f"{label} wavelength (nm)")
+            axes[1, j].set_ylabel(units)
+            for i in range(2):
+                axes[i, j].yaxis.grid(True)
     return fig
 
 
