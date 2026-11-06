@@ -32,6 +32,7 @@ nav:
       - Installation and build: gui.md
   - Methods:
       - Data model: data_model.md
+      - Instruments and formats: instruments.md
       - Corrections: corrections.md
       - Indices: indices.md
       - CDOM metrics: absorbance.md

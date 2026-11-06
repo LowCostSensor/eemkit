@@ -16,7 +16,10 @@ step recorded so that an analysis can be repeated exactly.
 ## What it does
 
 * **Import** Agilent Cary Eclipse 3-D EEMs and Cary 60 absorbance spectra
-  (CSV "ASCII with log"), with the instrument settings from the file log.
+  (CSV "ASCII with log"), with the instrument settings from the file log;
+  also Horiba Aqualog and Fluoromax, Hitachi F-7000, Shimadzu and plain
+  matrix or two-column files. Processing already done by the instrument
+  software must be declared and is never repeated.
   Samples, blanks and absorbance spectra are paired through an explicit,
   hand-editable table: nothing is matched silently.
 * **Correct** in a fixed, enforced order: instrument spectral correction

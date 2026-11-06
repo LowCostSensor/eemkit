@@ -33,6 +33,7 @@ import json
 import platform
 import re
 import tomllib
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,10 +47,11 @@ from eemkit import campaigns as K
 from eemkit import corrections as C
 from eemkit import indices as I
 from eemkit import parafac as P
-from eemkit.core.history import get_history
+from eemkit.core.history import get_history, has_step
 from eemkit.corrections.dilution import has_dilution_columns
+from eemkit.corrections.instrument import check_declared, mark_done
 from eemkit.corrections.zap import ZAP_VAR
-from eemkit.errors import Cancelled, SettingsError
+from eemkit.errors import Cancelled, EEMKitWarning, SettingsError
 from eemkit.io.loader import load_dataset
 from eemkit.io.pairing import read_pairing
 
@@ -57,7 +59,15 @@ Progress = Callable[[str, int, int], None]
 
 #: Default settings. ``None`` means "no default: must be provided".
 DEFAULTS: dict = {
-    "project": {"data_root": "", "pairing": "", "output_dir": ""},
+    # instrument: EEM file format (eemkit.io.loader.READERS); absorbance_format: "cary60" or
+    # "two_column"; already_done: steps the instrument software did ("blank", "inner_filter",
+    # "raman"), declared by you and checked against what the files say.
+    "project": {"data_root": "", "pairing": "", "output_dir": "", "instrument": "cary_eclipse",
+                "absorbance_format": "cary60", "already_done": []},
+    # Shimadzu files do not store the excitation wavelengths: first one and step (nm)
+    "shimadzu": {"ex_start": None, "ex_step": None},
+    # generic matrix files: "em_rows" (first row = excitation) or "ex_rows"
+    "matrix_csv": {"orientation": "em_rows"},
     # Instrument-specific factor files (wavelength, factor); empty = not applied.
     # convention: "multiply" (correction factors) or "divide" (response spectra).
     "spectral": {"ex_factors": "", "em_factors": "", "convention": "multiply"},
@@ -191,7 +201,24 @@ def load(settings: dict, base: str | Path | None = None) -> xr.Dataset:
     base = Path(base) if base is not None else None
     root = _resolve(settings, "data_root", base)
     table = read_pairing(_resolve(settings, "pairing", base), data_root=root)
-    return load_dataset(table, data_root=root)
+    proj = settings["project"]
+    return load_dataset(table, data_root=root, eem_format=proj.get("instrument", "cary_eclipse"),
+                        abs_format=proj.get("absorbance_format", "cary60"),
+                        reader_options=reader_options(settings))
+
+
+def reader_options(settings: dict) -> dict:
+    """Keyword arguments for the EEM reader of ``project.instrument``."""
+    inst = settings["project"].get("instrument", "cary_eclipse")
+    if inst == "shimadzu":
+        s = settings.get("shimadzu", {})
+        if s.get("ex_start") in (None, "") or s.get("ex_step") in (None, ""):
+            raise SettingsError("shimadzu.ex_start and shimadzu.ex_step are not set: Shimadzu "
+                                "files do not store the excitation wavelengths")
+        return {"ex_start": float(s["ex_start"]), "ex_step": float(s["ex_step"])}
+    if inst == "matrix_csv":
+        return {"orientation": settings.get("matrix_csv", {}).get("orientation", "em_rows")}
+    return {}
 
 
 def correct_until_raman(ds: xr.Dataset, settings: dict,
@@ -199,9 +226,16 @@ def correct_until_raman(ds: xr.Dataset, settings: dict,
     """Spectral correction (if factor files are set), absorbance blank, inner
     filter, EEM blank and Raman units; then dilution (when the pairing table
     has dilution columns) and the regions of ``zap.regions``. Factor files are
-    relative to ``base``."""
-    l_abs = _required(settings, "inner_filter", "absorbance_path_length_cm")
-    l_fl = _required(settings, "inner_filter", "fluorescence_path_length_cm")
+    relative to ``base``. Steps listed in ``project.already_done`` were done by
+    the instrument software: they are recorded, not repeated, and must agree
+    with what the files say (:func:`eemkit.corrections.instrument.check_declared`)."""
+    done = list(settings["project"].get("already_done") or [])
+    check_declared(ds, done)
+    has_abs = "absorbance" in ds
+    if "inner_filter" not in done or has_abs:
+        l_abs = _required(settings, "inner_filter", "absorbance_path_length_cm")
+    if "inner_filter" not in done:
+        l_fl = _required(settings, "inner_filter", "fluorescence_path_length_cm")
     missing = settings["missing"]["policy"]
     sp = settings["spectral"]
     files = [bool(sp.get(k)) for k in ("ex_factors", "em_factors")]
@@ -213,16 +247,32 @@ def correct_until_raman(ds: xr.Dataset, settings: dict,
             ds, ex_factors=_resolve(settings, "ex_factors", base, "spectral"),
             em_factors=_resolve(settings, "em_factors", base, "spectral"),
             convention=sp.get("convention", "multiply"))
-    ds = C.subtract_absorbance_blank(ds, missing=missing)
     diluted = has_dilution_columns(ds)
-    if diluted:
-        ds = C.match_absorbance_dilution(ds)
-    ds = C.correct_inner_filter(ds, absorbance_path_length_cm=l_abs,
-                                fluorescence_path_length_cm=l_fl, missing=missing)
-    ds = C.subtract_blank(ds, missing=missing)
-    r = settings["raman"]
-    ds = C.normalize_raman(ds, ex=float(r["ex"]), em_range=tuple(r["em_range"]),
-                           baseline=bool(r["baseline"]), missing=missing)
+    if has_abs:
+        ds = C.subtract_absorbance_blank(ds, missing=missing)
+        if diluted:
+            ds = C.match_absorbance_dilution(ds)
+    if "inner_filter" in done:
+        ds = mark_done(ds, "inner_filter")
+    else:
+        if "blank" in done:
+            warnings.warn("the instrument subtracted the blank before eemkit's inner-filter "
+                          "correction; eemkit's own order is the opposite (the water Raman "
+                          "signal is attenuated too)", EEMKitWarning, stacklevel=2)
+            ds = mark_done(ds, "blank")
+        ds = C.correct_inner_filter(ds, absorbance_path_length_cm=l_abs,
+                                    fluorescence_path_length_cm=l_fl, missing=missing)
+    if "blank" in done:
+        if not has_step(ds, "subtract_blank"):
+            ds = mark_done(ds, "blank")
+    else:
+        ds = C.subtract_blank(ds, missing=missing)
+    if "raman" in done:
+        ds = mark_done(ds, "raman")
+    else:
+        r = settings["raman"]
+        ds = C.normalize_raman(ds, ex=float(r["ex"]), em_range=tuple(r["em_range"]),
+                               baseline=bool(r["baseline"]), missing=missing)
     if diluted:
         ds = C.correct_dilution(ds)
     regions = settings.get("zap", {}).get("regions") or []

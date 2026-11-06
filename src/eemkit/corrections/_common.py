@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 
 from eemkit.core.dataset import SAMPLE_DIM
-from eemkit.core.history import has_step
+from eemkit.core.history import get_history, has_step
 from eemkit.errors import CorrectionError
 
 MISSING_POLICIES = ("error", "keep", "drop")
@@ -23,8 +23,18 @@ def require_not_done(ds: xr.Dataset, step: str) -> None:
         raise CorrectionError(f"{step} has already been applied to this dataset")
 
 
-def require_not_after(ds: xr.Dataset, step: str, later: str) -> None:
-    if has_step(ds, later):
+def require_not_after(ds: xr.Dataset, step: str, later: str,
+                      allow_instrument: bool = False) -> None:
+    """Refuse ``step`` once ``later`` is in the history.
+
+    With ``allow_instrument``, a ``later`` step that the instrument software
+    did before export (``done_by`` in its parameters) does not count: eemkit
+    cannot undo it, and the pipeline warns about the order instead.
+    """
+    entries = [e for e in get_history(ds) if e["step"] == later]
+    if allow_instrument:
+        entries = [e for e in entries if "done_by" not in e.get("params", {})]
+    if entries:
         raise CorrectionError(f"{step} must be applied before {later}")
 
 

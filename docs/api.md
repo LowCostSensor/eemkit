@@ -8,6 +8,24 @@
 
 ::: eemkit.io.cary60.mean_cycles
 
+::: eemkit.io.instruments
+    options:
+      show_root_toc_entry: false
+      members:
+        - read_aqualog
+        - read_fluoromax
+        - read_hitachi_f7000
+        - read_shimadzu
+        - read_matrix_csv
+        - read_two_column_absorbance
+
+::: eemkit.corrections.instrument
+    options:
+      show_root_toc_entry: false
+      members:
+        - check_declared
+        - mark_done
+
 ::: eemkit.io.discover.scan_folder
 
 ::: eemkit.io.discover.suggest_pairing

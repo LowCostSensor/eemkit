@@ -25,6 +25,8 @@ from eemkit.corrections._common import require_not_after, require_not_done, requ
 from eemkit.errors import CorrectionError, FileFormatError
 
 NOT_CORRECTED = "none"
+#: status of files that do not say whether the instrument corrected them
+UNKNOWN = "unknown (not stated in the files)"
 
 
 def read_correction_file(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
@@ -73,7 +75,7 @@ def apply_spectral_correction(
     variables = tuple(v for v in variables if v in ds.data_vars)
     require_vars(ds, "intensity", step=step)
     require_not_done(ds, step)
-    if spectral_correction_status(ds) != NOT_CORRECTED:
+    if spectral_correction_status(ds) not in (NOT_CORRECTED, UNKNOWN):
         raise CorrectionError(f"{step}: the data are already spectrally corrected "
                               f"({spectral_correction_status(ds)})")
     for later in ("correct_inner_filter", "subtract_blank", "normalize_raman", "remove_scatter"):

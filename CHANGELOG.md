@@ -24,6 +24,15 @@ All notable changes are listed here. Versions follow
 * Outlier diagnostics: `sample_diagnostics` (leverage, relative residual and
   ranks per sample), `spectral_residuals` (residual by wavelength), and the
   figures `plot.residual_eems` and `plot.spectral_residuals`.
+* Other fluorometers: readers for Horiba Aqualog and Fluoromax, Hitachi
+  F-7000 (over-range values to missing), Shimadzu (excitation wavelengths from
+  the settings) and any text matrix; two-column absorbance files. The format
+  is set in `project.instrument` / `project.absorbance_format`, and the folder
+  scan follows it. Processing already done by the instrument software (e.g.
+  Aqualog "Sample - Blank") must be declared in `project.already_done`: it is
+  recorded, never repeated nor skipped silently. Files that do not state the
+  instrument's spectral correction are marked "unknown". Tested on the
+  example files of the R package eemR.
 * Diluted samples: optional pairing-table columns `dilution_factor` and
   `abs_dilution_factor`; absorbance rescaled to the EEM's dilution before the
   inner-filter correction (`match_absorbance_dilution`), EEMs multiplied by

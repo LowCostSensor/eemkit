@@ -1,0 +1,2 @@
+# Instrument files used as test data are kept byte for byte.
+tests/data/** -text

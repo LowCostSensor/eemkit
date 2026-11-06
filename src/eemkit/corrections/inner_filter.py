@@ -68,7 +68,7 @@ def correct_inner_filter(
     # The water Raman signal inside the sample is attenuated like the DOM
     # fluorescence, so IFE must be corrected before the blank is subtracted.
     for later in ("subtract_blank", "normalize_raman", "remove_scatter"):
-        require_not_after(ds, step, later)
+        require_not_after(ds, step, later, allow_instrument=later == "subtract_blank")
     if not has_step(ds, "subtract_absorbance_blank"):
         raise CorrectionError(f"{step}: subtract the absorbance blank first")
     for name, val in (("absorbance_path_length_cm", absorbance_path_length_cm),

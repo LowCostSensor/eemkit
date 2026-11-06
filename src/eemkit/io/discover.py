@@ -70,24 +70,84 @@ def classify(path: str | Path) -> dict:
     return out
 
 
+#: file suffixes looked at for each EEM format
+SUFFIXES = {"cary_eclipse": (".csv",), "aqualog": (".dat",), "fluoromax": (".dat",),
+            "hitachi_f7000": (".txt",), "shimadzu": (".txt",),
+            "matrix_csv": (".csv", ".txt", ".dat")}
+ABS_SUFFIXES = {"cary60": (".csv",), "two_column": (".csv", ".txt")}
+
+
+def classify_with(path: str | Path, instrument: str, absorbance_format: str,
+                  reader_options: dict | None = None) -> dict:
+    """Like :func:`classify`, for any format: the file is read with the format's reader.
+
+    A file that the EEM reader accepts is an 'eem' (sample name = file name);
+    otherwise one that the absorbance reader accepts is 'absorbance';
+    otherwise 'unknown', with the readers' complaint in ``problem``.
+    """
+    import warnings
+
+    from eemkit.io.loader import ABS_READERS, READERS
+
+    path = Path(path)
+    if instrument == "cary_eclipse" and absorbance_format == "cary60":
+        return classify(path)
+    out = {"kind": "unknown", "sample_name": "", "n_scans": 0, "first_x": None,
+           "last_x": None, "problem": ""}
+    problems = []
+    suffix = path.suffix.lower()
+    if suffix in SUFFIXES.get(instrument, ()):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                ds = READERS[instrument](path, **(reader_options or {}))
+            ex = ds["ex"].values
+            out.update(kind="eem", sample_name=str(ds.attrs.get("sample_name", path.stem)),
+                       n_scans=int(ex.size), first_x=float(ex[0]), last_x=float(ex[-1]))
+            return out
+        except Exception as exc:  # noqa: BLE001 - any failure means "not this format"
+            problems.append(f"{instrument}: {exc}")
+    if suffix in ABS_SUFFIXES.get(absorbance_format, ()):
+        try:
+            ds = ABS_READERS[absorbance_format](path)
+            wl = ds["wavelength"].values
+            out.update(kind="absorbance", sample_name=str(ds.attrs.get("sample_name",
+                                                                       path.stem)),
+                       n_scans=int(ds.sizes.get("cycle", 1)), first_x=float(wl[0]),
+                       last_x=float(wl[-1]))
+            return out
+        except Exception as exc:  # noqa: BLE001
+            problems.append(f"{absorbance_format}: {exc}")
+    out["problem"] = "; ".join(problems) or f"not a {instrument} or {absorbance_format} file"
+    return out
+
+
 def scan_folder(
     root: str | Path,
     *,
     blank_pattern: str = DEFAULT_BLANK_PATTERN,
     progress: Callable[[int, int], None] | None = None,
+    instrument: str = "cary_eclipse",
+    absorbance_format: str = "cary60",
+    reader_options: dict | None = None,
 ) -> pd.DataFrame:
-    """Classify every ``*.csv`` below ``root`` (recursively); read-only.
+    """Classify the measurement files below ``root`` (recursively); read-only.
 
+    With the default formats (Cary Eclipse and Cary 60) every ``*.csv`` is
+    classified from its first two lines. For other instruments the files with
+    the format's suffixes are read with its reader (:func:`classify_with`).
     Returns one row per file with :data:`INVENTORY_COLUMNS`; ``file`` is
     relative to ``root`` with forward slashes. ``first_x``/``last_x`` are
-    the excitation range (EEM) or cycle numbers (absorbance).
+    the excitation range (EEM), the cycle numbers (Cary 60) or the wavelength
+    range (two-column absorbance).
     """
     root = Path(root)
-    files = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() == ".csv")
+    suffixes = set(SUFFIXES.get(instrument, ())) | set(ABS_SUFFIXES.get(absorbance_format, ()))
+    files = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in suffixes)
     blank = re.compile(blank_pattern, re.IGNORECASE)
     rows = []
     for i, p in enumerate(files):
-        info = classify(p)
+        info = classify_with(p, instrument, absorbance_format, reader_options)
         rel = p.relative_to(root).as_posix()
         info["file"] = rel
         info["is_blank"] = bool(blank.search(info["sample_name"]) or blank.search(p.name))

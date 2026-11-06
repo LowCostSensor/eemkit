@@ -13,12 +13,19 @@ from eemkit.core.dataset import SAMPLE_DIM, stack
 from eemkit.core.grid import DEFAULT_TOLERANCE, infer_common_grid, resample
 from eemkit.core.history import HISTORY_ATTR, describe_grid, get_history, make_entry
 from eemkit.errors import GridError
+from eemkit.io import instruments as _I
 from eemkit.io.cary60 import mean_cycles, read_cary60
 from eemkit.io.cary_eclipse import read_cary_eclipse
 from eemkit.io.pairing import read_pairing
 
-READERS = {"cary_eclipse": read_cary_eclipse}
-ABS_READERS = {"cary60": read_cary60}
+#: EEM readers by the names used in ``project.instrument``
+READERS = {"cary_eclipse": read_cary_eclipse, "aqualog": _I.read_aqualog,
+           "fluoromax": _I.read_fluoromax, "hitachi_f7000": _I.read_hitachi_f7000,
+           "shimadzu": _I.read_shimadzu, "matrix_csv": _I.read_matrix_csv}
+#: absorbance readers by the names used in ``project.absorbance_format``
+ABS_READERS = {"cary60": read_cary60, "two_column": _I.read_two_column_absorbance}
+#: formats whose files state whether the instrument corrected the spectra
+STATES_CORRECTION = ("cary_eclipse", "hitachi_f7000")
 
 
 def load_dataset(
@@ -29,6 +36,7 @@ def load_dataset(
     tolerance: float = DEFAULT_TOLERANCE,
     eem_format: str = "cary_eclipse",
     abs_format: str = "cary60",
+    reader_options: dict | None = None,
 ) -> xr.Dataset:
     """Read every included row of a pairing table into one dataset.
 
@@ -46,6 +54,11 @@ def load_dataset(
         the choice is recorded in the history.
     tolerance
         Edge tolerance of the linear resampling (nm).
+    eem_format, abs_format
+        File formats: a key of :data:`READERS` and of :data:`ABS_READERS`.
+    reader_options
+        Keyword arguments for the EEM reader (e.g. ``ex_start`` and
+        ``ex_step`` for Shimadzu files, ``orientation`` for ``matrix_csv``).
 
     Returns
     -------
@@ -70,7 +83,16 @@ def load_dataset(
         raise ValueError("no included rows in the pairing table")
     ids = list(rows["sample_id"])
 
-    read_eem = READERS[eem_format]
+    if eem_format not in READERS:
+        raise ValueError(f"unknown instrument {eem_format!r}; choose one of {sorted(READERS)}")
+    if abs_format not in ABS_READERS:
+        raise ValueError(f"unknown absorbance format {abs_format!r}; choose one of "
+                         f"{sorted(ABS_READERS)}")
+    opts = dict(reader_options or {})
+
+    def read_eem(path):
+        return READERS[eem_format](path, **opts)
+
     read_abs = ABS_READERS[abs_format]
     cache: dict[str, xr.Dataset] = {}
 
@@ -140,9 +162,15 @@ def load_dataset(
     ds = ds.assign_coords(meta)
     ds.attrs["pairing_source"] = table.attrs.get("source", "")
     ds.attrs["data_root"] = str(root)
-    ds.attrs["spectral_correction"] = (
-        "instrument ('Corrected spectra' ON)"
-        if str(ds.attrs.get("eem_corrected_spectra", "")).upper() == "ON" else "none")
+    if str(ds.attrs.get("eem_corrected_spectra", "")).upper() == "ON":
+        ds.attrs["spectral_correction"] = "instrument ('Corrected spectra' ON)"
+    elif eem_format in STATES_CORRECTION:
+        ds.attrs["spectral_correction"] = "none"
+    else:
+        from eemkit.corrections.spectral import UNKNOWN
+        ds.attrs["spectral_correction"] = UNKNOWN
+    ds.attrs["eem_format"] = eem_format
+    ds.attrs["abs_format"] = abs_format
     ds.attrs[HISTORY_ATTR] = json.dumps(history + [make_entry("load_dataset", **params)])
     return ds
 

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from eemkit import pipeline
-from eemkit.errors import EEMKitWarning
+from eemkit.errors import EEMKitError, EEMKitWarning
 from eemkit.gui.common import (
     EXCLUDED,
     SUGGESTED,
@@ -236,8 +236,18 @@ class ProjectTab(QWidget):
             QMessageBox.information(self, "eemkit", "Choose the data folder first.")
             return
 
+        proj = self.project.settings["project"]
+        try:
+            opts = pipeline.reader_options(self.project.settings)
+        except EEMKitError as e:
+            QMessageBox.information(self, "eemkit", str(e))
+            return
+
         def work(progress, cancelled):
-            return scan_folder(root, progress=lambda i, n: progress("Scanning files", i, n))
+            return scan_folder(root, progress=lambda i, n: progress("Scanning files", i, n),
+                               instrument=proj.get("instrument", "cary_eclipse"),
+                               absorbance_format=proj.get("absorbance_format", "cary60"),
+                               reader_options=opts)
 
         def done(inv):
             self.project.inventory = inv
