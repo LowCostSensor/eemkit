@@ -40,9 +40,79 @@ m = eemkit.parafac.fit_parafac(ds, rank=5, n_init=10, normalization="norm", tol=
 |---|---|---|
 | `core_consistency` | CORCONDIA (%) | Bro & Kiers 2003 |
 | `leverage`, `sse_sample` | outlier detection | Murphy et al. 2013 |
-| `split_half` | S4C6T3 validation, Tucker congruence ≥ 0.95 | Murphy et al. 2013; Lorenzo-Seva & ten Berge 2006 |
+| `split_half` | S4C6T3 validation, Tucker congruence ≥ 0.95; SSC also reported | Murphy et al. 2013; Lorenzo-Seva & ten Berge 2006 |
+| `eemqual` | fit × core consistency × split-half, to rank models | Bro & Vidal 2011 |
+| `shift_shape_congruence` | SSC: congruence sensitive to peak shift and width | Wünsch et al. 2019 |
+| `compare_models`, `compare_ranks` | pair the components of two models, with TCC and SSC | |
+| `component_correlations` | correlation of component Fmax across samples | |
 | `match_components` | pair components of two models | |
 | `to_openfluor` | loadings in the OpenFluor text format | Murphy et al. 2014 |
 
 Core consistency is computed on the data with missing values replaced by the
 model.
+
+### Shift- and shape-sensitive congruence (SSC)
+
+Tucker's congruence (TCC) rates two spectra whose maxima are 10–15 nm apart
+as almost identical. SSC (Wünsch et al. 2019) subtracts two penalties from it:
+
+* α = |wavelength of maximum₁ − wavelength of maximum₂| / wavelength range;
+* β = |area₁ − area₂| / wavelength range, where each spectrum is first divided
+  by its own maximum, so β grows when one peak is wider.
+
+SSC = TCC − α − β. Wünsch et al. compare emission spectra with SSC and
+excitation spectra with TCC. eemkit integrates the areas with the trapezoid
+rule, so SSC does not depend on the wavelength step; staRdom's `ssc` sums the
+points, which on a 1 nm grid differs by at most 1 / range. In split-half
+validation SSC is reported (`ssc_ex`, `ssc_em`, `attrs["min_ssc_em"]`) but
+the decision still uses TCC ≥ 0.95, as in Murphy et al. (2013).
+
+### EEMqual
+
+`eemqual(model, split)` multiplies three numbers between 0 and 1 (Bro & Vidal
+2011): explained variance / 100, core consistency / 100 (negative values set
+to 0) and the lowest split-half Tucker congruence (`split.attrs["min_tcc"]`).
+The last term is an eemkit choice: staRdom uses the product of the best
+congruence of each component, which is never lower. The exploration table
+(`pipeline.explore`) has an `eemqual` column. EEMqual ranks models fitted to
+the same data; it does not replace looking at the components.
+
+### Comparing models
+
+`compare_models(m1, m2)` pairs the components of two models fitted on the same
+wavelengths (they may have different ranks) and gives TCC and SSC for
+excitation and emission. `compare_ranks(models)` does it between each rank
+and the next, which shows which components stay stable when one more is added
+and which split. `component_correlations(model)` gives the Spearman (or
+Pearson) correlation of the components' Fmax: two components that always vary
+together may be one source split in two.
+
+## Applying a model to new samples
+
+```python
+new = eemkit.parafac.project_samples(model, new_corrected_eems)
+new["fmax"]                    # scores in the units of the data
+new["outside_model_range"]     # True: fitted worse than any sample of the model
+```
+
+The model's excitation and emission spectra are kept fixed; for each new
+sample the scores are the non-negative least-squares fit of its observed
+values, as drEEM's `projectmodel` and staRdom's `A_missing` do. Scaling a
+sample scales its scores by the same factor, so the per-sample normalisation
+used to fit the model does not change the projected scores.
+
+The new samples must be on the model's wavelengths and should be processed in
+the same way; a warning says when their processing history differs.
+`relative_sse` is the residual over the data sum of squares of each sample;
+`outside_model_range` marks the samples for which it is higher than for any
+sample used to build the model: the model does not describe them well, and
+they may contain a component the model does not have.
+
+## References
+
+Bro, R., Kiers, H.A.L. (2003) *Journal of Chemometrics* 17, 274–286 ·
+Bro, R., Vidal, M. (2011) *Chemometrics and Intelligent Laboratory Systems* 106, 86–92 ·
+Lorenzo-Seva, U., ten Berge, J.M.F. (2006) *Methodology* 2, 57–64 ·
+Murphy, K.R. et al. (2013) *Analytical Methods* 5, 6557–6566 ·
+Murphy, K.R. et al. (2014) *Analytical Methods* 6, 658–661 ·
+Wünsch, U.J., Bro, R., Stedmon, C.A., Wenig, P., Murphy, K.R. (2019) *Analytical Methods* 11, 888–893.

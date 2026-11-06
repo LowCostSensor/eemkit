@@ -68,8 +68,13 @@
         - summary_table
         - model_eem
         - residuals
+        - project_samples
 
 ::: eemkit.parafac.validation.split_half
+
+::: eemkit.parafac.compare
+    options:
+      show_root_toc_entry: false
 
 ::: eemkit.parafac.diagnostics
     options:

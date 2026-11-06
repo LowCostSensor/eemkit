@@ -319,6 +319,7 @@ def explore(ds: xr.Dataset, settings: dict, *, progress: Progress | None = None,
     table = P.summary_table(models)
     table["split_half_min_tcc"] = [splits[r].attrs["min_tcc"] for r in table.index]
     table["split_half_validated"] = [bool(splits[r].attrs["validated"]) for r in table.index]
+    table["eemqual"] = [P.eemqual(models[r], splits[r])["eemqual"] for r in table.index]
     return Exploration(models, splits, table)
 
 

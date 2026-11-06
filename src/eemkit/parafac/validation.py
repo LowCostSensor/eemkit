@@ -17,7 +17,7 @@ import pandas as pd
 import xarray as xr
 
 from eemkit.core.dataset import SAMPLE_DIM
-from eemkit.parafac.diagnostics import match_components
+from eemkit.parafac.diagnostics import match_components, shift_shape_congruence
 from eemkit.parafac.model import fit_parafac
 
 PAIRS = (((0, 1), (2, 3)), ((0, 2), (1, 3)), ((0, 3), (1, 2)))
@@ -60,6 +60,8 @@ def split_half(
     ``split_random_state`` seeds the division into groups; ``fit_kwargs``
     (including ``random_state``) go to :func:`fit_parafac` for every half.
     Returns a dataset with ``tcc_ex`` and ``tcc_em`` (test, component), the
+    same for the shift- and shape-sensitive congruence ``ssc_ex``, ``ssc_em``
+    (reported only; the decision uses TCC, as in Murphy et al. 2013), the
     half-model loadings (half, ex|em, component, aligned to the first half of
     each test), ``groups(sample)`` and attrs ``validated`` and ``min_tcc``.
     """
@@ -73,7 +75,8 @@ def split_half(
                 sel = np.isin(groups, g)
                 halves[key] = fit_parafac(ds.isel({SAMPLE_DIM: sel}), rank, **fit_kwargs)
 
-    tex, tem, names, ex_l, em_l, half_names = [], [], [], [], [], []
+    tex, tem, sex, sem, names, ex_l, em_l, half_names = [], [], [], [], [], [], [], []
+    f = np.arange(rank)
     for g1, g2 in PAIRS:
         k1 = "".join(LETTERS[i] for i in g1)
         k2 = "".join(LETTERS[i] for i in g2)
@@ -82,6 +85,10 @@ def split_half(
                                          m2.ex_loadings.values, m2.em_loadings.values)
         tex.append(te)
         tem.append(tm)
+        sex.append(shift_shape_congruence(m1.ex_loadings.values, m2.ex_loadings.values,
+                                          ds["ex"].values)[f, order])
+        sem.append(shift_shape_congruence(m1.em_loadings.values, m2.em_loadings.values,
+                                          ds["em"].values)[f, order])
         names.append(f"{k1} vs {k2}")
         for k, m, o in ((k1, m1, np.arange(rank)), (k2, m2, order)):
             half_names.append(k)
@@ -94,6 +101,8 @@ def split_half(
         {
             "tcc_ex": (("test", "component"), tex),
             "tcc_em": (("test", "component"), tem),
+            "ssc_ex": (("test", "component"), np.array(sex)),
+            "ssc_em": (("test", "component"), np.array(sem)),
             "half_ex_loadings": (("half", "ex", "component"), np.array(ex_l)),
             "half_em_loadings": (("half", "em", "component"), np.array(em_l)),
             "groups": ((SAMPLE_DIM,), groups),
@@ -104,6 +113,8 @@ def split_half(
                 SAMPLE_DIM: ds[SAMPLE_DIM].values},
     )
     out.attrs = {"rank": rank, "threshold": threshold, "min_tcc": min_tcc,
+                 # reported, not used for the decision (Murphy et al. 2013 use TCC)
+                 "min_ssc_em": float(np.min(sem)),
                  "validated": int(min_tcc >= threshold), "design": "S4C6T3",
                  "stratify": str(stratify), "split_random_state": split_random_state,
                  "half_explained_pct": json.dumps(

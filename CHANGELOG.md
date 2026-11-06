@@ -11,6 +11,16 @@ All notable changes are listed here. Versions follow
 * PARAFAC random starts run in parallel threads (`n_jobs`, default every
   processor); the model does not depend on it.
 * README and documentation: install from PyPI, Zenodo DOI.
+* Shift- and shape-sensitive congruence (`shift_shape_congruence`; Wünsch et
+  al. 2019), also reported in split-half validation (`ssc_ex`, `ssc_em`).
+* `eemqual` (Bro & Vidal 2011) and an `eemqual` column in the exploration
+  table.
+* `compare_models`, `compare_ranks` and `component_correlations` to compare
+  PARAFAC models and their components.
+* `project_samples`: scores of new samples on a fitted model with its spectra
+  fixed, with a flag for samples the model describes worse than any of its
+  own.
+* PARAFAC models store each sample's data sum of squares (`data_sumsq`).
 
 ## 0.1.0 (2026-11-05)
 

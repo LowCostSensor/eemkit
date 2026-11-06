@@ -144,6 +144,8 @@ def fit_parafac(
             "leverage_em": (("em",), leverage(C)),
             "sse_sample": ((SAMPLE_DIM,), np.nansum(resid ** 2, axis=(1, 2))),
             "sse_sample_normalized": ((SAMPLE_DIM,), np.nansum(resid_n ** 2, axis=(1, 2))),
+            "data_sumsq": ((SAMPLE_DIM,), np.nansum(X ** 2, axis=(1, 2)),
+                           {"long_name": "sum of squares of the observed data"}),
             "init_sse": (("init",), sses),
             "init_n_iter": (("init",), [f.n_iter for f in fits]),
             "init_converged": (("init",), [f.converged for f in fits]),
@@ -191,6 +193,125 @@ def residuals(model: xr.Dataset, ds: xr.Dataset, variable: str = "intensity") ->
     data = ds[variable].transpose(SAMPLE_DIM, "ex", "em").sel(
         {SAMPLE_DIM: model[SAMPLE_DIM].values})
     return (data - model_eem(model)).rename("residual")
+
+
+#: history parameters that describe the samples rather than the method
+_SAMPLE_PARAMS = ("missing", "max_factor", "em_grid_inferred", "wavelength_grid_inferred")
+#: steps after the corrections, not part of how the EEMs were processed
+_MODEL_STEPS = ("fit_parafac", "project_samples")
+
+
+def _method_steps(history: list[dict]) -> list[tuple[str, dict]]:
+    """The processing steps and their method parameters, without counts and times."""
+    return [(e["step"], {k: v for k, v in e["params"].items()
+                         if not k.startswith("n_") and k not in _SAMPLE_PARAMS})
+            for e in history if e["step"] not in _MODEL_STEPS]
+
+
+def _relative_sse_of_model(model: xr.Dataset) -> np.ndarray | None:
+    """Residual / data sum of squares of every sample the model was fitted to."""
+    if "data_sumsq" in model:
+        return model["sse_sample"].values / model["data_sumsq"].values
+    if model.attrs.get("normalization") == "norm":  # models saved before data_sumsq
+        return model["sse_sample_normalized"].values
+    return None
+
+
+def project_samples(model: xr.Dataset, ds: xr.Dataset, variable: str = "intensity"
+                    ) -> xr.Dataset:
+    """Scores of new samples on a fitted model, with its spectra kept fixed.
+
+    The excitation and emission loadings of ``model`` are not changed; for
+    each sample of ``ds`` the scores are the non-negative least-squares fit
+    of its observed (non-NaN) values (as drEEM's ``projectmodel`` and
+    staRdom's ``A_missing``). Dividing a sample by a constant divides its
+    scores by the same constant, so the per-sample normalisation used to fit
+    the model does not change the projected scores, which are in data units
+    like the model's.
+
+    ``ds`` must be on the model's wavelengths (wider data are cut to them)
+    and should be processed as the model's data were: a warning says when its
+    processing history differs.
+
+    Returns ``scores``, ``fmax``, ``sse_sample`` and ``relative_sse`` (residual
+    over data sum of squares) for every new sample, and
+    ``outside_model_range``: True when ``relative_sse`` is above the highest
+    value among the samples used to fit the model, i.e. the model describes
+    that sample worse than any sample it was built on. ``attrs`` hold that
+    maximum and the model's main statistics.
+    """
+    from scipy.optimize import nnls
+
+    from eemkit.errors import GridError
+
+    try:
+        da = ds[variable].transpose(SAMPLE_DIM, "ex", "em").sel(
+            ex=model["ex"].values, em=model["em"].values)
+    except KeyError as e:
+        raise GridError("the new samples do not contain all the model's wavelengths "
+                        f"({model['ex'].values.min()}-{model['ex'].values.max()} nm ex, "
+                        f"{model['em'].values.min()}-{model['em'].values.max()} nm em): "
+                        "process them with the same grid and crop") from e
+    model_steps = _method_steps(json.loads(model.attrs.get(HISTORY_ATTR, "[]")))
+    if _method_steps(get_history(ds)) != model_steps:
+        warnings.warn("project_samples: the new samples were processed differently from the "
+                      "model's data (compare their processing histories); their scores may "
+                      "not be comparable", EEMKitWarning, stacklevel=2)
+
+    B, C = model["ex_loadings"].values, model["em_loadings"].values
+    design = np.einsum("jf,kf->jkf", B, C).reshape(-1, B.shape[1])
+    X = da.values.astype(float)
+    n = X.shape[0]
+    scores = np.full((n, B.shape[1]), np.nan)
+    sse = np.full(n, np.nan)
+    sumsq = np.full(n, np.nan)
+    for i in range(n):
+        x = X[i].ravel()
+        obs = np.isfinite(x)
+        if not obs.any():
+            continue
+        a, _ = nnls(design[obs], x[obs])
+        scores[i] = a
+        sse[i] = float(np.sum((x[obs] - design[obs] @ a) ** 2))
+        sumsq[i] = float(np.sum(x[obs] ** 2))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rel = sse / sumsq
+    ref = _relative_sse_of_model(model)
+    limit = float(np.max(ref)) if ref is not None else np.nan
+    outside = rel > limit if ref is not None else np.zeros(n, dtype=bool)
+    if outside.any():
+        names = [str(s) for s in da[SAMPLE_DIM].values[outside]]
+        warnings.warn(f"project_samples: {len(names)} sample(s) fitted worse than any sample of "
+                      f"the model: {names}", EEMKitWarning, stacklevel=2)
+
+    sample_coords = {c: ds[c] for c in ds.coords
+                     if c != SAMPLE_DIM and ds[c].dims == (SAMPLE_DIM,)}
+    units = da.attrs.get("units", "")
+    out = xr.Dataset(
+        {
+            "scores": ((SAMPLE_DIM, "component"), scores, {"units": units}),
+            "fmax": ((SAMPLE_DIM, "component"), scores * B.max(axis=0) * C.max(axis=0),
+                     {"units": units, "long_name": "maximum fluorescence of each component"}),
+            "sse_sample": ((SAMPLE_DIM,), sse),
+            "relative_sse": ((SAMPLE_DIM,), rel,
+                             {"long_name": "residual sum of squares / data sum of squares"}),
+            "outside_model_range": ((SAMPLE_DIM,), outside),
+        },
+        coords={SAMPLE_DIM: da[SAMPLE_DIM].values, "component": model["component"].values,
+                **sample_coords},
+    )
+    out.attrs = {
+        "rank": int(model.attrs["rank"]),
+        "model_max_relative_sse": limit,
+        "model_explained_variance_pct": model.attrs["explained_variance_pct"],
+        "model_n_samples": int(model.sizes[SAMPLE_DIM]),
+        "method": "non-negative least squares with fixed excitation and emission loadings",
+    }
+    history = get_history(ds) + [make_entry(
+        "project_samples", rank=int(model.attrs["rank"]), variable=variable,
+        model_samples=int(model.sizes[SAMPLE_DIM]))]
+    out.attrs[HISTORY_ATTR] = json.dumps(history)
+    return out
 
 
 def fit_ranks(ds: xr.Dataset, ranks, **kwargs) -> dict[int, xr.Dataset]:
