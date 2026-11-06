@@ -124,6 +124,11 @@ was compared with the R package staRdom 1.1.32 (Pucher et al. 2019):
 * the 3-component PARAFAC models have Tucker congruence ≥ 0.999 for every
   excitation and emission loading.
 
+The PARAFAC model was also compared with drEEM 2.26.03 (MATLAB; Murphy et al.
+2013), with both its engines, the N-way toolbox and parafac3w: Tucker
+congruence ≥ 0.9999, Fmax correlation 1.00000, same explained variance, and
+core consistency within 0.1 %.
+
 The scripts and the full report are in
 [ombrone-fdom](https://github.com/LowCostSensor/ombrone-fdom).
 

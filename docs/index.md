@@ -72,8 +72,11 @@ eemkit was compared with the R package staRdom 1.1.32 (Pucher et al. 2019) on
 205 river-water samples from the Ombrone basin, Italy (Polvani et al. 2026):
 corrected EEMs agree to a median relative difference of 2.2 × 10⁻⁴, FI, BIX
 and Coble peaks to machine precision, HIX to 3 × 10⁻⁴, and the 3-component
-PARAFAC models have Tucker congruence ≥ 0.999 for every loading. Scripts and
-report: [ombrone-fdom](https://github.com/LowCostSensor/ombrone-fdom).
+PARAFAC models have Tucker congruence ≥ 0.999 for every loading. Against
+drEEM 2.26.03 (MATLAB; both its engines, N-way and parafac3w) the model has
+Tucker congruence ≥ 0.9999, the same explained variance, and core
+consistency within 0.1 %. Scripts and report:
+[ombrone-fdom](https://github.com/LowCostSensor/ombrone-fdom).
 
 ## Citation and license
 

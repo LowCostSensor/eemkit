@@ -101,8 +101,34 @@ def test_core_consistency_exact_model_is_100():
     ds, A, B, C = synthetic(noise=0.0, missing=False)
     X = ds.intensity.values
     assert P.core_consistency(X, A, B, C) == pytest.approx(100, abs=1e-6)
-    with pytest.raises(ValueError):
-        P.core_consistency(np.where(X > 0.5, np.nan, X), A, B, C)
+    # missing cells are left out, not imputed: an exact model stays at 100
+    assert P.core_consistency(np.where(X > 0.5, np.nan, X), A, B, C) == pytest.approx(
+        100, abs=1e-6)
+
+
+@pytest.mark.parametrize("noise, nway", [(0.05, 99.934192), (0.2, 98.999615)])
+def test_core_consistency_matches_nway_toolbox(noise, nway):
+    # reference: nway.modeleval.corcond(X, {A, B, C}) of the N-way toolbox shipped
+    # with drEEM 2.26.03 (MATLAB R2024b), on these arrays with the scatter band missing
+    ds, A, B, C = synthetic(noise=noise)
+    assert P.core_consistency(ds.intensity.values, A, B, C) == pytest.approx(nway, abs=1e-5)
+
+
+def test_core_consistency_does_not_depend_on_scaling():
+    ds, A, B, C = synthetic(noise=0.05)
+    X = ds.intensity.values
+    d = np.array([10.0, 0.2, 3.0])
+    ref = P.core_consistency(X, A, B, C)
+    assert ref < 100
+    assert P.core_consistency(X, A * d, B / d, C) == pytest.approx(ref, rel=1e-10)
+
+
+def test_core_consistency_rank_deficient_is_nan():
+    ds, A, B, C = synthetic(noise=0.05)
+    B2 = B.copy()
+    B2[:, 1] = B2[:, 0]
+    with pytest.warns(EEMKitWarning, match="rank-deficient"):
+        assert np.isnan(P.core_consistency(ds.intensity.values, A, B2, C))
 
 
 def test_tucker_and_matching():

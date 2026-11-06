@@ -38,7 +38,7 @@ m = eemkit.parafac.fit_parafac(ds, rank=5, n_init=10, normalization="norm", tol=
 
 | function | purpose | reference |
 |---|---|---|
-| `core_consistency` | CORCONDIA (%) | Bro & Kiers 2003 |
+| `core_consistency` | CORCONDIA (%), as the N-way toolbox computes it | Bro & Kiers 2003; Andersson & Bro 2000 |
 | `leverage`, `sse_sample` | outlier detection | Murphy et al. 2013 |
 | `split_half` | S4C6T3 validation, Tucker congruence ≥ 0.95; SSC also reported | Murphy et al. 2013; Lorenzo-Seva & ten Berge 2006 |
 | `eemqual` | fit × core consistency × split-half, to rank models | Bro & Vidal 2011 |
@@ -48,8 +48,27 @@ m = eemkit.parafac.fit_parafac(ds, rank=5, n_init=10, normalization="norm", tol=
 | `match_components` | pair components of two models | |
 | `to_openfluor` | loadings in the OpenFluor text format | Murphy et al. 2014 |
 
-Core consistency is computed on the data with missing values replaced by the
-model.
+### Core consistency
+
+Core consistency (CORCONDIA, Bro & Kiers 2003) asks how far the best Tucker
+core for the model's loadings is from the superdiagonal core of a perfect
+trilinear model; 100 % means perfect. eemkit computes it exactly as `corcond`
+of the N-way toolbox (Andersson & Bro 2000), the copy drEEM uses, so values
+can be compared with drEEM's and with the literature:
+
+1. each component's three loading vectors are given the same norm, so the
+   result does not depend on how the component's size is split between them;
+2. the core is fitted by least squares to the observed cells only: missing
+   values (scatter) are left out, not filled with the model;
+3. CC = 100 (1 − Σ(G − T)² / ΣG²), with G the fitted core and T the
+   superdiagonal core.
+
+On the same arrays eemkit and N-way (drEEM 2.26.03) agree to 10⁻⁶ %; a test
+checks it. eemkit 0.1 used another convention (all of a component's size in
+the scores, missing cells filled with the model, denominator F), which gave
+higher values: 85.5 % instead of 74.9 % on the Ombrone model. If a loading
+matrix is rank-deficient (two components with the same profile in one mode),
+the value is NaN with a warning.
 
 ### Shift- and shape-sensitive congruence (SSC)
 
@@ -132,6 +151,7 @@ they may contain a component the model does not have.
 
 ## References
 
+Andersson, C.A., Bro, R. (2000) *Chemometrics and Intelligent Laboratory Systems* 52, 1–4 ·
 Bro, R., Kiers, H.A.L. (2003) *Journal of Chemometrics* 17, 274–286 ·
 Bro, R., Vidal, M. (2011) *Chemometrics and Intelligent Laboratory Systems* 106, 86–92 ·
 Lorenzo-Seva, U., ten Berge, J.M.F. (2006) *Methodology* 2, 57–64 ·

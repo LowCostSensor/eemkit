@@ -5,6 +5,19 @@ All notable changes are listed here. Versions follow
 
 ## Unreleased
 
+* **Changed: core consistency is now computed as the N-way toolbox's
+  `corcond` (the copy used by drEEM)**: loading vectors of each component
+  scaled to the same norm, core fitted to the observed cells only (missing
+  values left out, not filled with the model), denominator the sum of squares
+  of the core. eemkit 0.1 gave values that depended on how each component's
+  size was split between the modes; values now match drEEM 2.26.03 to 10⁻⁶ %
+  (tested). They are usually lower than before for good models (Ombrone,
+  3 components: 75.0 % instead of 85.5 %) and no longer strongly negative for
+  overfactored ones; EEMqual changes with them. The models themselves do not
+  change. Rank-1 models are now computed too, instead of set to 100.
+* Benchmark of the PARAFAC fit against drEEM 2.26.03 (N-way and parafac3w
+  engines) on the Ombrone data: same model, Tucker congruence ≥ 0.9999.
+
 * Command line: `eemkit check project.toml` reports missing files and
   settings; `eemkit run project.toml` runs the whole chain and exports the
   results, as the application does (also `python -m eemkit`).

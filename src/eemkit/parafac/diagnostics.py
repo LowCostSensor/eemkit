@@ -2,27 +2,58 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+from eemkit.errors import EEMKitWarning
+
 
 def core_consistency(X: np.ndarray, A: np.ndarray, B: np.ndarray, C: np.ndarray) -> float:
-    """CORCONDIA in percent (Bro & Kiers 2003, J. Chemometrics 17:274-286).
+    """CORCONDIA in percent (Bro & Kiers 2003), computed as the N-way toolbox does.
 
-    The least-squares Tucker3 core for the given loadings is
-    ``X x1 A+ x2 B+ x3 C+`` (``+`` = pseudo-inverse); with ``T`` the
-    superdiagonal identity core, ``CC = 100 (1 - ||G - T||^2 / F)``.
-    ``X`` must be complete: impute missing values (e.g. with the model) first.
+    Same computation as ``corcond`` of the N-way toolbox (Andersson & Bro
+    2000; version 2.01, the copy shipped with drEEM 2, called as drEEM's
+    ``fitparafac`` calls it), so the values can be compared with drEEM's:
+
+    1. each component's loading vectors are given the same norm,
+       ``(|a_f| |b_f| |c_f|)^(1/3)``, so the result does not depend on how a
+       component's size is split between the modes;
+    2. the Tucker3 core ``G`` for these loadings is fitted by least squares to
+       the observed cells only (missing values, e.g. scatter, are left out,
+       not imputed);
+    3. ``CC = 100 (1 - ||G - T||^2 / ||G||^2)``, with ``T`` the superdiagonal
+       identity core.
+
+    Returns NaN, with a warning, if a loading matrix is rank-deficient (two
+    components with the same profile in a mode); the N-way toolbox then
+    changes the target core, which is not reproduced here.
     """
-    if not np.isfinite(X).all():
-        raise ValueError("core_consistency needs a complete array; impute missing values")
+    X = np.asarray(X, dtype=float)
+    A, B, C = (np.asarray(M, dtype=float) for M in (A, B, C))
     F = A.shape[1]
-    G = np.tensordot(np.linalg.pinv(A), X, axes=(1, 0))  # F x J x K
-    G = np.tensordot(G, np.linalg.pinv(B), axes=(1, 1))  # F x K x F
-    G = np.tensordot(G, np.linalg.pinv(C), axes=(1, 1))  # F x F x F
+    for M in (A, B, C):
+        if np.linalg.matrix_rank(M) < F:
+            warnings.warn("core consistency not computed: a loading matrix is "
+                          "rank-deficient (components with the same profile in one mode)",
+                          EEMKitWarning, stacklevel=2)
+            return float("nan")
+    na, nb, nc = (np.linalg.norm(M, axis=0) for M in (A, B, C))
+    m = (na * nb * nc) ** (1.0 / 3.0)
+    A, B, C = A / na * m, B / nb * m, C / nc * m
+
+    W = np.isfinite(X).astype(float)
+    Xz = np.where(W > 0, X, 0.0)
+    # normal equations of vec(X_obs) = (C kron B kron A)_obs vec(G), mode by mode
+    YtY = np.einsum("ijk,ip,iq->jkpq", W, A, A, optimize=True)
+    YtY = np.einsum("jkpq,jr,js->kpqrs", YtY, B, B, optimize=True)
+    YtY = np.einsum("kpqrs,kt,ku->prtqsu", YtY, C, C, optimize=True).reshape(F ** 3, F ** 3)
+    Ytx = np.einsum("ijk,ip,jr,kt->prt", Xz, A, B, C, optimize=True).reshape(F ** 3)
+    G = np.linalg.pinv(YtY) @ Ytx
     T = np.zeros((F, F, F))
     T[np.arange(F), np.arange(F), np.arange(F)] = 1.0
-    return float(100.0 * (1.0 - np.sum((G - T) ** 2) / F))
+    return float(100.0 * (1.0 - np.sum((G - T.reshape(-1)) ** 2) / np.sum(G ** 2)))
 
 
 def leverage(M: np.ndarray) -> np.ndarray:

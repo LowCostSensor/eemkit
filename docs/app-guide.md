@@ -4,7 +4,7 @@ How to use the eemkit desktop application to go from Cary Eclipse and Cary 60 CS
 
 The screenshots show river-water samples from the Ombrone basin, Italy, 2024 (Polvani et al. 2026, [doi:10.1016/j.envpol.2026.127858](https://doi.org/10.1016/j.envpol.2026.127858)); the data and the project file are in the [ombrone-fdom](https://github.com/LowCostSensor/ombrone-fdom) repository.
 
-The app is a front end to the eemkit library and does no calculations of its own. Every button calls the same functions as a script using `eemkit.pipeline`, and gives the same results: on the Ombrone data, the 3-component model fitted in the app has 99.017 % explained variance, 85.5 % core consistency and a split-half congruence of 0.9915, as in the scripted analysis.
+The app is a front end to the eemkit library and does no calculations of its own. Every button calls the same functions as a script using `eemkit.pipeline`, and gives the same results: on the Ombrone data, the 3-component model fitted in the app has 99.017 % explained variance, 75.0 % core consistency and a split-half congruence of 0.9915, as in the scripted analysis.
 
 Labels in this guide are written as they appear on screen, for example `Apply corrections`.
 
@@ -227,7 +227,7 @@ Settings on the left, four views of the results on the right. Work in two stages
 | Column | Meaning |
 | --- | --- |
 | `explained_pct` | Explained variance (%) of the scaled data. |
-| `core_consistency_pct` | CORCONDIA (Bro & Kiers 2003): close to 100 for an appropriate model, collapses with too many components. |
+| `core_consistency_pct` | CORCONDIA (Bro & Kiers 2003), computed as the N-way toolbox and drEEM do: close to 100 for an appropriate model, drops with too many components. |
 | `sse_normalized` | Residual sum of squares. |
 | `n_iter`, `converged` | Iterations of the best fit and whether it reached the tolerance. |
 | `starts_at_best` | How many initialisations reached the same minimum: if few did, the solution is unstable. |

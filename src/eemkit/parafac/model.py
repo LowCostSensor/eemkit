@@ -116,8 +116,7 @@ def fit_parafac(
 
     observed = np.isfinite(Xn)
     model_n = reconstruct(A, B, C)
-    filled = np.where(observed, Xn, model_n)
-    cc = core_consistency(filled, A, B, C) if rank > 1 else 100.0
+    cc = core_consistency(Xn, A, B, C)  # observed cells only, as the N-way toolbox
     resid_n = np.where(observed, Xn - model_n, np.nan)
     sse_n = float(np.nansum(resid_n ** 2))
     explained = 100.0 * (1.0 - sse_n / float(np.nansum(Xn ** 2)))

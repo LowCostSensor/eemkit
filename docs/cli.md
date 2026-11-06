@@ -66,13 +66,13 @@ $ eemkit run config/ombrone_project.toml -o results
 ...
           explained_pct  core_consistency_pct  ...  split_half_min_tcc  split_half_validated
     rank
-    2            97.933                99.444  ...               0.989                  True
-    3            99.016                85.136  ...               0.992                  True
-    4            99.209              -124.439  ...               0.175                 False
+    2            97.933                99.373  ...               0.989                  True
+    3            99.016                74.868  ...               0.992                  True
+    4            99.209                24.714  ...               0.175                 False
 ...
 [1214.2 s]   final 3-component model (1/2)
 [1485.1 s]   split-half validation (2/2)
-[1705.4 s]   explained 99.017 %, core consistency 85.5 %, 20/20 starts at the best minimum, split-half min TCC 0.9915 (validated)
+[1705.4 s]   explained 99.017 %, core consistency 75.0 %, 20/20 starts at the best minimum, split-half min TCC 0.9915 (validated)
 [1705.6 s] writing results to results
 [1708.0 s] done: 16 files
 ```
