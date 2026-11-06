@@ -1,12 +1,11 @@
 # Desktop application
 
 ```bash
-python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install "eemkit[gui]"
 python -m eemkit.gui       # optionally followed by a project.toml
 ```
 
-(Until eemkit is on PyPI; then `pip install "eemkit[gui]"`.) The
-`eemkit-gui` command does the same as `python -m eemkit.gui` when Python's
+The `eemkit-gui` command does the same as `python -m eemkit.gui` when Python's
 `Scripts` folder is on the PATH.
 
 The application is a front end to `eemkit.pipeline`: it does no processing

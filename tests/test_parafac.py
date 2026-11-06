@@ -72,6 +72,18 @@ def test_fit_parafac_outputs_and_units():
     assert contrib[0] >= contrib[-1]
 
 
+def test_parallel_starts_give_the_same_model():
+    ds, *_ = synthetic()
+    serial = P.fit_parafac(ds, 3, n_init=4, max_iter=1000, n_jobs=1)
+    parallel = P.fit_parafac(ds, 3, n_init=4, max_iter=1000, n_jobs=4)
+    np.testing.assert_array_equal(serial.init_sse, parallel.init_sse)
+    np.testing.assert_array_equal(serial.em_loadings, parallel.em_loadings)
+    # n_jobs does not change the result, so it is not part of the processing history
+    assert "n_jobs" not in parallel.attrs["eemkit_history"]
+    with pytest.raises(ValueError, match="n_jobs"):
+        P.fit_parafac(ds, 3, n_init=2, n_jobs=0)
+
+
 def test_core_consistency_drops_when_overfactored():
     ds, *_ = synthetic(noise=0.02)
     cc = {r: P.fit_parafac(ds, r, n_init=3, max_iter=2000).attrs["core_consistency_pct"]

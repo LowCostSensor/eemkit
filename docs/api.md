@@ -94,3 +94,7 @@
 ::: eemkit.plot
     options:
       show_root_toc_entry: false
+
+## Command line
+
+::: eemkit.cli.main

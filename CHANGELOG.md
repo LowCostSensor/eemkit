@@ -3,6 +3,15 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+* Command line: `eemkit check project.toml` reports missing files and
+  settings; `eemkit run project.toml` runs the whole chain and exports the
+  results, as the application does (also `python -m eemkit`).
+* PARAFAC random starts run in parallel threads (`n_jobs`, default every
+  processor); the model does not depend on it.
+* README and documentation: install from PyPI, Zenodo DOI.
+
 ## 0.1.0 (2026-11-05)
 
 First public release.

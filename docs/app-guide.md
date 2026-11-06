@@ -17,24 +17,22 @@ installer), then, in a terminal (on Windows: *PowerShell* from the Start
 menu):
 
 ```bash
-python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install "eemkit[gui]"
 python -m eemkit.gui
 ```
 
-The first command installs eemkit from GitHub (it is not on PyPI yet; then it
-will be `pip install "eemkit[gui]"`); the `[gui]` part is needed for the
-application. The second starts it. To open a project directly, pass the file
-as an argument:
+The first command installs eemkit from PyPI; the `[gui]` part is needed for
+the application. The second starts it. To open a project directly, pass the
+file as an argument:
 
 ```bash
 python -m eemkit.gui path/to/project.toml
 ```
 
-To update an existing installation while the version number has not changed
-(`--upgrade` is not enough), reinstall eemkit; the other libraries stay:
+To update to the latest release:
 
 ```bash
-python -m pip install --force-reinstall --no-deps "eemkit @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install --upgrade "eemkit[gui]"
 ```
 
 ### The Ombrone example project

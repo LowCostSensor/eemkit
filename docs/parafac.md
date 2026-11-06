@@ -26,6 +26,10 @@ m = eemkit.parafac.fit_parafac(ds, rank=5, n_init=10, normalization="norm", tol=
   fitting, so a few intense samples do not dominate; scores are scaled back.
 * `n_init` random starts; the best is kept, and `init_sse` /
   `attrs["n_init_at_best_minimum"]` show whether starts agree.
+* `n_jobs` random starts run at the same time, in threads (default: every
+  processor; `n_jobs=1` runs them one after the other). Each start keeps its
+  own seed, so the model is identical whatever `n_jobs` is; on an 8-core
+  laptop the starts take about half the time.
 * Output: `scores`, `fmax`, `ex_loadings`, `em_loadings` (unit norm),
   leverages, per-sample residual sums of squares, explained variance and
   core consistency.

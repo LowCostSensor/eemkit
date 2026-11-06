@@ -270,11 +270,11 @@ def parafac_input(corrected: xr.Dataset, settings: dict) -> xr.Dataset:
     return ds
 
 
-def _fit_kwargs(p: dict, final: dict | None = None) -> dict:
+def _fit_kwargs(p: dict, final: dict | None = None, n_jobs: int | None = None) -> dict:
     f = final or {}
     return dict(normalization=p["normalization"] or None, tol=float(f.get("tol", p["tol"])),
                 max_iter=int(f.get("max_iter", p["max_iter"])),
-                random_state=int(p["random_state"]))
+                random_state=int(p["random_state"]), n_jobs=n_jobs)
 
 
 def _split(ds: xr.Dataset, rank: int, p: dict, kw: dict) -> xr.Dataset:
@@ -292,14 +292,17 @@ class Exploration:
 
 
 def explore(ds: xr.Dataset, settings: dict, *, progress: Progress | None = None,
-            cancelled: Callable[[], bool] | None = None) -> Exploration:
+            cancelled: Callable[[], bool] | None = None,
+            n_jobs: int | None = None) -> Exploration:
     """PARAFAC and split-half validation for every rank in ``parafac.ranks``.
 
     ``cancelled`` is polled between fits; when it returns True,
-    :class:`~eemkit.errors.Cancelled` is raised.
+    :class:`~eemkit.errors.Cancelled` is raised. ``n_jobs``: random starts
+    run at the same time (see :func:`eemkit.parafac.fit_parafac`); it does
+    not change the result.
     """
     p = settings["parafac"]
-    kw = _fit_kwargs(p)
+    kw = _fit_kwargs(p, n_jobs=n_jobs)
     ranks = [int(r) for r in p["ranks"]]
     models, splits = {}, {}
     for i, r in enumerate(ranks):
@@ -320,7 +323,8 @@ def explore(ds: xr.Dataset, settings: dict, *, progress: Progress | None = None,
 
 
 def fit_final(ds: xr.Dataset, settings: dict, *, progress: Progress | None = None,
-              cancelled: Callable[[], bool] | None = None) -> tuple[xr.Dataset, xr.Dataset]:
+              cancelled: Callable[[], bool] | None = None,
+              n_jobs: int | None = None) -> tuple[xr.Dataset, xr.Dataset]:
     """The rank in ``parafac.final.rank`` with its own convergence settings."""
     p = settings["parafac"]
     final = p["final"]
@@ -328,7 +332,7 @@ def fit_final(ds: xr.Dataset, settings: dict, *, progress: Progress | None = Non
         raise SettingsError("parafac.final.rank is not set: choose the number of components "
                             "after the exploratory models")
     r = int(final["rank"])
-    kw = _fit_kwargs(p, final)
+    kw = _fit_kwargs(p, final, n_jobs=n_jobs)
     if progress:
         progress(f"final {r}-component model", 0, 2)
     model = P.fit_parafac(ds, r, n_init=int(final["n_init"]), **kw)

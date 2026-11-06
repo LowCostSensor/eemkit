@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import xarray as xr
@@ -18,6 +20,14 @@ NORMALIZATIONS = ("norm", None)
 
 #: two runs whose SSE differs by less than this fraction are considered the same minimum
 SAME_MINIMUM_RTOL = 1e-3
+
+
+def _n_workers(n_jobs: int | None) -> int:
+    if n_jobs is None:
+        return os.cpu_count() or 1
+    if n_jobs < 1:
+        raise ValueError("n_jobs must be None or at least 1")
+    return int(n_jobs)
 
 
 def _sample_scale(X: np.ndarray, normalization: str | None) -> np.ndarray:
@@ -41,6 +51,7 @@ def fit_parafac(
     max_iter: int = 5000,
     random_state: int = 0,
     variable: str = "intensity",
+    n_jobs: int | None = None,
 ) -> xr.Dataset:
     """Non-negative PARAFAC of ``ds[variable]`` (sample, ex, em), best of ``n_init`` starts.
 
@@ -52,6 +63,10 @@ def fit_parafac(
         Random starts (seeds ``random_state``, ``random_state + 1``, ...). The
         lowest-SSE fit is kept; all SSEs are stored to judge whether the
         solution is reproducible.
+    n_jobs
+        Random starts run at the same time, in threads; ``None`` uses every
+        processor, ``1`` runs them one after the other. Each start has its own
+        seed, so the result does not depend on ``n_jobs``.
     normalization
         ``"norm"``: each sample is divided by its Frobenius norm before
         fitting and the scores are scaled back afterwards (Murphy et al. 2013);
@@ -76,10 +91,17 @@ def fit_parafac(
     scale = _sample_scale(X, normalization)
     Xn = X / scale[:, None, None]
 
-    fits = []
-    for k in range(n_init):
-        fits.append(nn_parafac(Xn, rank, random_state=random_state + k, tol=tol,
-                               max_iter=max_iter))
+    def start(k: int):
+        return nn_parafac(Xn, rank, random_state=random_state + k, tol=tol, max_iter=max_iter)
+
+    workers = min(n_init, _n_workers(n_jobs))
+    if workers > 1:
+        # numpy releases the GIL in its array operations, so threads run the
+        # starts in parallel; map keeps the order of the seeds
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            fits = list(pool.map(start, range(n_init)))
+    else:
+        fits = [start(k) for k in range(n_init)]
     sses = np.array([f.sse for f in fits])
     best = fits[int(np.argmin(sses))]
     if not best.converged:

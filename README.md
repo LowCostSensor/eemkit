@@ -2,6 +2,8 @@
 
 [![tests](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml/badge.svg)](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml)
 [![docs](https://github.com/LowCostSensor/eemkit/actions/workflows/docs.yml/badge.svg)](https://lowcostsensor.github.io/eemkit/)
+[![PyPI](https://img.shields.io/pypi/v/eemkit.svg)](https://pypi.org/project/eemkit/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23982732.svg)](https://doi.org/10.5281/zenodo.23982732)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/LowCostSensor/eemkit/blob/main/LICENSE)
 
 Python tools and a desktop application for fluorescence excitation-emission
@@ -98,7 +100,12 @@ pipeline.export_results("results", s, corrected=corrected, indices=indices,
 ```
 
 Or start the application (`python -m eemkit.gui`) and open the same
-`project.toml`.
+`project.toml`, or run it from a terminal:
+
+```bash
+eemkit check project.toml    # missing files and settings
+eemkit run project.toml      # the whole chain, results in project.output_dir
+```
 
 Every function can also be used on its own; see the
 [documentation](https://lowcostsensor.github.io/eemkit/).
@@ -132,10 +139,18 @@ to its root folder. Contributions and bug reports are welcome: see
 
 ## Citation
 
-If you use eemkit, please cite it (see
-[CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff); a DOI is
-issued on Zenodo for every release) and the methods it implements, listed in
-the documentation of each step.
+If you use eemkit, please cite it, together with the methods it implements
+(listed in the documentation of each step):
+
+> Cirrone, R. G. eemkit: EEM processing and PARAFAC modelling of dissolved
+> organic matter fluorescence. Zenodo.
+> [doi:10.5281/zenodo.23982732](https://doi.org/10.5281/zenodo.23982732)
+
+This DOI always points to the latest version; each release also has its own
+DOI, listed on the Zenodo page (0.1.0:
+[10.5281/zenodo.23982733](https://doi.org/10.5281/zenodo.23982733)). The
+details are in
+[CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff).
 
 ## License
 

@@ -22,11 +22,11 @@ step recorded so that an analysis can be repeated exactly.
 ## Install
 
 You need Python 3.11 or later (on Windows, tick *Add python.exe to PATH* when
-installing it). eemkit is not on PyPI yet, so install it from GitHub; the
-`[gui]` part adds the desktop application and the figures:
+installing it). The `[gui]` part adds the desktop application and the
+figures:
 
 ```bash
-python -m pip install "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install "eemkit[gui]"
 ```
 
 Then start the application with:
@@ -36,16 +36,20 @@ python -m eemkit.gui
 ```
 
 For the library alone, leave out `[gui]` (or use `[plot]` for figures
-without the application). Once eemkit is on PyPI this becomes
-`pip install "eemkit[gui]"`. A stand-alone Windows build of the application,
-which needs no Python, will be attached to each
+without the application). A stand-alone Windows build of the application,
+which needs no Python, is attached to each
 [release](https://github.com/LowCostSensor/eemkit/releases).
 
-To update an installation made from GitHub to the latest version (a plain
-`--upgrade` is not enough while the version number has not changed):
+To update to the latest release:
 
 ```bash
-python -m pip install --force-reinstall --no-deps "eemkit @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
+python -m pip install --upgrade "eemkit[gui]"
+```
+
+The development version, with changes not yet released, installs from GitHub:
+
+```bash
+python -m pip install --force-reinstall "eemkit[gui] @ https://github.com/LowCostSensor/eemkit/archive/refs/heads/main.zip"
 ```
 
 `python -m pip show eemkit` tells which version is installed; the changes of
@@ -73,8 +77,12 @@ report: [ombrone-fdom](https://github.com/LowCostSensor/ombrone-fdom).
 
 ## Citation and license
 
-Cite eemkit with the metadata in
-[CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff)
-(a DOI is issued on Zenodo for every release), together with the methods you
-used. eemkit is free software under the GNU General Public License v3.0 or
+Cite eemkit as *Cirrone, R. G. eemkit: EEM processing and PARAFAC modelling
+of dissolved organic matter fluorescence. Zenodo.
+[doi:10.5281/zenodo.23982732](https://doi.org/10.5281/zenodo.23982732)*,
+together with the methods you used. This DOI always points to the latest
+version; each release has its own DOI on the Zenodo page (0.1.0:
+[10.5281/zenodo.23982733](https://doi.org/10.5281/zenodo.23982733)). Full
+metadata:
+[CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff). eemkit is free software under the GNU General Public License v3.0 or
 later.

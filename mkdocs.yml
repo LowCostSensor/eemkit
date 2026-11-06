@@ -26,6 +26,7 @@ theme:
 nav:
   - Home: index.md
   - Quick start: quickstart.md
+  - Command line: cli.md
   - Desktop application:
       - Guide: app-guide.md
       - Installation and build: gui.md

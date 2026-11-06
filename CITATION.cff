@@ -8,6 +8,14 @@ authors:
     affiliation: University of Siena
 version: 0.1.0
 date-released: "2026-11-05"
+doi: 10.5281/zenodo.23982732
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23982732
+    description: "All versions (concept DOI); resolves to the latest release"
+  - type: doi
+    value: 10.5281/zenodo.23982733
+    description: "Version 0.1.0"
 license: GPL-3.0-or-later
 repository-code: "https://github.com/LowCostSensor/eemkit"
 url: "https://lowcostsensor.github.io/eemkit/"
