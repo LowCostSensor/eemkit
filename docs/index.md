@@ -88,7 +88,8 @@ Cite eemkit as *Cirrone, R. G. eemkit: EEM processing and PARAFAC modelling
 of dissolved organic matter fluorescence. Zenodo.
 [doi:10.5281/zenodo.23982732](https://doi.org/10.5281/zenodo.23982732)*,
 together with the methods you used. This DOI always points to the latest
-version; each release has its own DOI on the Zenodo page (0.1.0:
+version; each release has its own DOI on the Zenodo page (0.2.0:
+[10.5281/zenodo.24015024](https://doi.org/10.5281/zenodo.24015024); 0.1.0:
 [10.5281/zenodo.23982733](https://doi.org/10.5281/zenodo.23982733)). Full
 metadata:
 [CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff). eemkit is free software under the GNU General Public License v3.0 or

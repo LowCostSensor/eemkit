@@ -167,7 +167,8 @@ If you use eemkit, please cite it, together with the methods it implements
 > [doi:10.5281/zenodo.23982732](https://doi.org/10.5281/zenodo.23982732)
 
 This DOI always points to the latest version; each release also has its own
-DOI, listed on the Zenodo page (0.1.0:
+DOI, listed on the Zenodo page (0.2.0:
+[10.5281/zenodo.24015024](https://doi.org/10.5281/zenodo.24015024); 0.1.0:
 [10.5281/zenodo.23982733](https://doi.org/10.5281/zenodo.23982733)). The
 details are in
 [CITATION.cff](https://github.com/LowCostSensor/eemkit/blob/main/CITATION.cff).

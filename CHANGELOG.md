@@ -25,7 +25,6 @@ consistency is now computed as in drEEM (first item).
   wide laptop screen.
 * Benchmark of the PARAFAC fit against drEEM 2.26.03 (N-way and parafac3w
   engines) on the Ombrone data: same model, Tucker congruence ≥ 0.9999.
-
 * Command line: `eemkit check project.toml` reports missing files and
   settings; `eemkit run project.toml` runs the whole chain and exports the
   results, as the application does (also `python -m eemkit`).
