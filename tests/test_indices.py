@@ -95,6 +95,49 @@ def test_compute_and_export(tmp_path):
     assert back.loc["s1", "river"] == "B"
     meta = json.loads(side.read_text())
     assert meta["ex_method"] == "linear" and meta["HIX"]["reference"] == "Ohno 2002"
+    assert meta["not_computed"] == {}
+
+
+def test_index_the_data_cannot_give_leaves_the_rest_of_the_table():
+    # emission starts at 300.3 nm (as drEEM's tutorial data): HIX needs 300 nm
+    em = EM[EM >= 300.0] + 0.3
+    ds = make_ds(lambda ex, em: 1000.0 / em + ex / 1000).interp(em=em)
+    with pytest.warns(EEMKitWarning, match="HIX not computed"):
+        df = I.compute_indices(ds, ex_method="linear")
+    assert list(df.columns) == ["FI", "HIX", "BIX", "peak_B", "peak_T", "peak_A",
+                                "peak_M", "peak_C"]
+    assert df["HIX"].isna().all()
+    assert df.drop(columns="HIX").notna().all().all()
+    assert "outside" in df.attrs["settings"]["not_computed"]["HIX"]
+    assert set(df.attrs["settings"]["not_computed"]) == {"HIX"}
+
+
+def test_unmeasured_excitations_with_exact_method_leave_the_rest():
+    # 254, 275 and 312 nm are not on the 10 nm grid; 260, 310, 350 and 370 are
+    ds = make_ds(lambda ex, em: 1000.0 / em + ex / 1000)
+    with pytest.warns(EEMKitWarning, match="not computed"):
+        df = I.compute_indices(ds, ex_method="exact")
+    empty = {c for c in df if df[c].isna().all()}
+    assert empty == {"HIX", "peak_B", "peak_T", "peak_M"}
+    assert set(df.attrs["settings"]["not_computed"]) == empty
+    assert df[["FI", "BIX", "peak_A", "peak_C"]].notna().all().all()
+
+
+def test_one_failing_peak_does_not_drop_the_others():
+    ds = make_ds(lambda ex, em: em + 0 * ex)
+    defs = {"T": I.COBLE_1996["T"], "X": (500.0, (400.0, 450.0))}  # ex 500 not measured
+    with pytest.warns(EEMKitWarning, match="peak_X not computed"):
+        df = I.compute_indices(ds, ex_method="linear", peak_definitions=defs)
+    assert df["peak_X"].isna().all() and df["peak_T"].notna().all()
+
+
+def test_on_error_raise_keeps_the_strict_behaviour():
+    em = EM[EM >= 300.0] + 0.3
+    ds = make_ds(lambda ex, em: em + 0 * ex).interp(em=em)
+    with pytest.raises(IndexComputationError, match="outside"):
+        I.compute_indices(ds, ex_method="linear", on_error="raise")
+    with pytest.raises(ValueError, match="on_error"):
+        I.compute_indices(ds, ex_method="linear", on_error="skip")
 
 
 def test_per_scan_coordinates_do_not_break_peaks():

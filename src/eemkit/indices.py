@@ -22,9 +22,12 @@ Excitation wavelengths that are not on the measured grid (e.g. 254, 275 or
 Emission values off the grid are linearly interpolated; emission areas are
 trapezoidal integrals of the piecewise-linear spectrum between the exact
 limits. A value that needs a NaN point (e.g. removed scatter) is NaN and
-triggers a warning. Ratios are unit-free; peaks are in the units of
-``intensity``. Indices depend on instrument spectral response (Cory et al.
-2010), so the spectral-correction status travels with every result.
+triggers a warning. In :func:`compute_indices`, an index the dataset cannot
+give at all (a wavelength outside the measured range) is left empty with a
+warning and its reason recorded, and the other indices are still computed.
+Ratios are unit-free; peaks are in the units of ``intensity``. Indices
+depend on instrument spectral response (Cory et al. 2010), so the
+spectral-correction status travels with every result.
 """
 
 from __future__ import annotations
@@ -42,6 +45,8 @@ from eemkit.core.history import get_history
 from eemkit.errors import EEMKitWarning, IndexComputationError
 
 EX_METHODS = ("linear", "nearest", "exact")
+#: what :func:`compute_indices` does with an index it cannot compute
+ON_ERROR = ("nan", "raise")
 
 #: Coble (1996) peaks: name -> (ex nm, (em_min, em_max) nm)
 COBLE_1996: dict[str, tuple[float, tuple[float, float]]] = {
@@ -203,23 +208,49 @@ def compute_indices(
     hix: Mapping | None = None,
     bix: Mapping | None = None,
     peak_definitions: Mapping[str, tuple[float, tuple[float, float]]] | None = None,
+    on_error: str = "nan",
 ) -> pd.DataFrame:
     """All indices in one table (one row per sample) with the settings in ``df.attrs``.
 
     ``fi``, ``hix``, ``bix`` are keyword overrides for the respective
     functions; ``peak_definitions`` defaults to :data:`COBLE_1996`.
     ``ex_method`` applies to every index and peak.
+
+    An index or peak that cannot be computed on this dataset (a wavelength
+    outside the measured range, or an excitation that was not measured when
+    ``ex_method="exact"``) does not stop the table: with ``on_error="nan"``
+    (default) its column is left empty (NaN), an :class:`EEMKitWarning` says
+    why, and the reason is stored in ``df.attrs["settings"]["not_computed"]``
+    (and so in the JSON sidecar of :func:`export_indices`). With
+    ``on_error="raise"`` the :class:`IndexComputationError` is raised instead.
     """
+    if on_error not in ON_ERROR:
+        raise ValueError(f"on_error must be one of {ON_ERROR}")
     fi, hix, bix = dict(fi or {}), dict(hix or {}), dict(bix or {})
     peak_definitions = dict(peak_definitions or COBLE_1996)
+    samples = pd.Index(ds["sample"].values, name="sample")
+    not_computed: dict[str, str] = {}
+
+    def attempt(name: str, compute) -> pd.Series:
+        try:
+            return compute().to_series()
+        except IndexComputationError as exc:
+            if on_error == "raise":
+                raise
+            not_computed[name] = str(exc)
+            warnings.warn(f"{name} not computed: {exc}", EEMKitWarning, stacklevel=3)
+            return pd.Series(np.nan, index=samples, name=name)
+
     cols = {
-        "FI": fluorescence_index(ds, ex_method=ex_method, **fi),
-        "HIX": humification_index(ds, ex_method=ex_method, **hix),
-        "BIX": biological_index(ds, ex_method=ex_method, **bix),
+        "FI": attempt("FI", lambda: fluorescence_index(ds, ex_method=ex_method, **fi)),
+        "HIX": attempt("HIX", lambda: humification_index(ds, ex_method=ex_method, **hix)),
+        "BIX": attempt("BIX", lambda: biological_index(ds, ex_method=ex_method, **bix)),
     }
-    pk = peaks(ds, peak_definitions, ex_method=ex_method)
-    cols.update({f"peak_{k}": pk[k] for k in pk.data_vars})
-    df = pd.DataFrame({k: v.to_series() for k, v in cols.items()})
+    for k, definition in peak_definitions.items():
+        cols[f"peak_{k}"] = attempt(
+            f"peak_{k}",
+            lambda k=k, d=definition: peaks(ds, {k: d}, ex_method=ex_method)[k])
+    df = pd.DataFrame(cols)
     df.index.name = "sample"
     df.attrs["settings"] = {
         "ex_method": ex_method,
@@ -232,6 +263,7 @@ def compute_indices(
                   "definitions": {k: [v[0], list(v[1])] for k, v in peak_definitions.items()},
                   "units": ds["intensity"].attrs.get("units", "")},
         "spectral_correction": ds.attrs.get("spectral_correction", "none"),
+        "not_computed": not_computed,
         "processing_history": get_history(ds),
     }
     return df

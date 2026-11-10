@@ -195,6 +195,18 @@ def write_report(
         desc = num.describe().T[["count", "mean", "std", "min", "max"]]
         body = ("<p>Summary over all samples; the full table is in <code>indices.csv</code>."
                 "</p>" + _table(desc))
+        # an index the data cannot give is an empty column: say so instead of
+        # leaving it out of the summary silently
+        reasons = indices.attrs.get("settings", {}).get("not_computed", {})
+        empty = [c for c in indices.columns
+                 if (c in ("FI", "HIX", "BIX") or str(c).startswith("peak_"))
+                 and indices[c].isna().all()]
+        if empty:
+            items = "".join(f"<li><code>{html.escape(str(c))}</code>"
+                            + (f": {html.escape(reasons[c])}" if c in reasons else "")
+                            + "</li>" for c in empty)
+            body += ('<p class="warn">Not computed for these data (empty columns):</p>'
+                     f"<ul>{items}</ul>")
         if "cdom_notes" in indices:
             n_notes = int((indices["cdom_notes"].fillna("").astype(str) != "").sum())
             if n_notes:
