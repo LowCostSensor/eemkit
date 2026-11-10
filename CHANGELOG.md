@@ -3,6 +3,24 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+* **Fixed: one index that cannot be computed no longer stops the whole
+  index table.** In 0.2.0, `compute_indices` (and so the application, the
+  command line and `pipeline.compute_indices`) raised as soon as one index or
+  peak needed a wavelength outside the measured range: for example, on data
+  whose emission starts at 300.3 nm (the drEEM tutorial data), HIX needs
+  300 nm and no index at all was returned. Now that index is left empty
+  (NaN) with an `EEMKitWarning` giving the reason, every other index and peak
+  is computed, and the reasons are kept in
+  `df.attrs["settings"]["not_computed"]` (also in the JSON file of
+  `export_indices`). Each peak is computed on its own, so one peak outside
+  the data does not empty the others. `on_error="raise"` keeps the old,
+  strict behaviour. Values of the indices that can be computed do not
+  change.
+* HTML report: index columns that are empty for every sample are listed with
+  their reason, instead of being left out of the summary without a word.
+
 ## 0.2.0 (2026-11-06)
 
 Other fluorometers, diluted samples, zap, PARAFAC model comparison and

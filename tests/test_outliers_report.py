@@ -86,3 +86,14 @@ def test_report_with_only_settings(tmp_path):
     path = write_report(tmp_path / "report.html", pipeline.default_settings())
     text = path.read_text(encoding="utf-8")
     assert 'id="reproduce"' in text and 'id="model"' not in text
+
+
+def test_report_names_indices_that_were_not_computed(tmp_path):
+    indices = pd.DataFrame({"FI": [1.4, 1.5], "HIX": [np.nan, np.nan]}, index=["s0", "s1"])
+    indices.attrs["settings"] = {"not_computed": {"HIX": "emission 300.0 nm is outside "
+                                                         "300.3-618.5 nm"}}
+    path = write_report(tmp_path / "report.html", pipeline.default_settings(), indices=indices)
+    text = path.read_text(encoding="utf-8")
+    assert "Not computed for these data" in text
+    assert "<code>HIX</code>: emission 300.0 nm is outside 300.3-618.5 nm" in text
+    assert "<code>FI</code>" not in text
