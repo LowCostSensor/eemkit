@@ -24,6 +24,14 @@ emission pair used by eemR, or `peak_definitions=` for other peaks.
 * A value that would need a missing point (removed scatter) is NaN and raises
   a warning, so compute indices **before** scatter removal: peak B at ex 275 /
   em 310 lies inside the first-order Raman band.
+* An index or peak the data cannot give at all (a wavelength outside the
+  measured range, e.g. HIX needs emission from 300 nm and the data start at
+  300.3 nm; or an excitation that was not measured with `ex_method="exact"`)
+  is left **empty** with a warning that gives the reason; the other indices
+  are still computed. The reasons are stored in
+  `df.attrs["settings"]["not_computed"]`, written to the JSON file of
+  `export_indices`, and listed in the HTML report. Pass `on_error="raise"` to
+  stop at the first index that cannot be computed instead.
 * Ratios depend on the instrument's spectral response (Cory et al. 2010).
   Without [spectral correction](corrections.md#spectral-correction), compare
   them only with values from the same instrument.
