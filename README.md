@@ -42,6 +42,9 @@ step recorded so that an analysis can be repeated exactly.
   & Vidal 2011); models and ranks can be compared component by component.
 * **Outliers**: leverage, residuals by sample and by wavelength, and residual
   EEMs of the worst-fitted samples.
+* **Sensor channels**: which components an LED and filter channel follows
+  (signal and share of each component per sample), in the application, the
+  figures, the report and from Python (`parafac.component_signals`).
 * **New samples** can be scored on a fitted model with its spectra fixed;
   samples the model describes worse than any of its own are flagged.
 * **Rivers, sites and dates**: any index, CDOM metric or PARAFAC component

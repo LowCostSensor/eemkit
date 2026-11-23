@@ -1,10 +1,16 @@
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import xarray as xr
+from test_parafac import synthetic
 
-from eemkit import SettingsError
+from eemkit import SettingsError, pipeline, plot
 from eemkit import parafac as P
 from eemkit.parafac.channels import _trapz
+from eemkit.report import write_report
 
 EX = np.arange(240.0, 451.0, 10.0)
 EM = np.arange(250.0, 601.0, 5.0)
@@ -169,3 +175,106 @@ def test_works_on_a_fitted_model():
     data = [_trapz(ds["intensity"].sel(sample=s, ex=280.0).values[band], EM[band])
             for s in fit["sample"].values]
     np.testing.assert_allclose(out["total"].sel(channel="T"), data, rtol=0.05)
+
+
+# --------------------------------------------------------------------------- #
+# Settings, tables, figure, export and report
+# --------------------------------------------------------------------------- #
+
+def _settings():
+    s = pipeline.default_settings()
+    s["channels"] = {"T": {"ex": 280.0, "em": [330.0, 370.0]},
+                     "H": {"ex": 330.0, "em": [420.0, 470.0]}}
+    return s
+
+
+@pytest.fixture(scope="module")
+def fitted():
+    ds, *_ = synthetic(n=24)
+    return ds, P.fit_parafac(ds, 3, n_init=2, max_iter=1500)
+
+
+@pytest.fixture(autouse=True)
+def _close():
+    yield
+    plt.close("all")
+
+
+def test_channels_round_trip_through_the_settings_file(tmp_path):
+    s = _settings()
+    path = pipeline.save_settings(s, tmp_path / "s.toml")
+    assert "[channels.T]" in path.read_text(encoding="utf-8")
+    assert pipeline.load_settings(path) == s
+    assert pipeline.default_settings()["channels"] == {}
+    assert pipeline.channel_signals(make_model(), pipeline.default_settings()) is None
+
+
+@pytest.mark.parametrize("channels, match", [
+    ({"a b": {"ex": 280, "em": [330, 370]}}, "letters, digits"),
+    ({"T": {"ex": 280}}, "needs ex"),
+    ({"T": {"ex": "x", "em": [330, 370]}}, "needs ex"),
+    ({"T": {"ex": 280, "em": [370, 330]}}, "is empty"),
+])
+def test_channel_settings_are_checked(channels, match):
+    with pytest.raises(SettingsError, match=match):
+        pipeline.channel_specs({"channels": channels})
+
+
+def test_channel_signals_from_settings_and_tables():
+    m = make_model()
+    sig = pipeline.channel_signals(m, _settings())
+    assert list(sig["channel"].values) == ["T", "H"]
+    direct = P.component_signals(m, {"T": {"ex": 280.0, "em": (330.0, 370.0)},
+                                     "H": {"ex": 330.0, "em": (420.0, 470.0)}})
+    np.testing.assert_allclose(sig["signal"], direct["signal"])
+    long, sens = pipeline.channel_tables(sig)
+    assert list(long.columns) == ["sample", "channel", "component", "signal", "share"]
+    assert len(long) == 6 * 2 * 3 and set(long["component"]) == {"C1", "C2", "C3"}
+    assert list(sens.columns) == ["C1", "C2", "C3"] and list(sens.index) == ["T", "H"]
+
+
+def test_channel_positions_are_kept_for_the_figures():
+    sig = P.component_signals(make_model(), {"T": {"ex": 280.0, "em": (330.0, 370.0)},
+                                             "W": {"ex": (260.0, 300.0), "em": (380.0, 440.0)}})
+    assert list(sig["ex_min"]) == [280.0, 260.0] and list(sig["ex_max"]) == [280.0, 300.0]
+    assert list(sig["em_min"]) == [330.0, 380.0] and list(sig["em_max"]) == [370.0, 440.0]
+
+
+def test_channel_figure_with_and_without_the_model():
+    m = make_model()
+    sig = pipeline.channel_signals(m, _settings())
+    fig = plot.channel_signals(sig, m)
+    bars = [a for a in fig.axes if a.get_xlabel().startswith("Share")]
+    assert len(bars) == 1 and len(bars[0].patches) == 2 * 3        # channels x components
+    assert [t.get_text() for t in fig.legends[0].get_texts()] == ["C1", "C2", "C3"]
+    # the first-listed channel (T) has the highest position, i.e. is drawn at the top
+    assert [t.get_text() for t in bars[0].get_yticklabels()] == ["T", "H"]
+    assert list(bars[0].get_yticks()) == [1.0, 0.0]
+    assert fig.axes[0].get_title(loc="left") == "Where the channels sit"
+    alone = plot.channel_signals(sig, names=["a", "b", "c"])
+    assert len(alone.axes) == 1 and alone.legends[0].get_texts()[0].get_text() == "a"
+
+
+def test_export_writes_the_channel_files(fitted, tmp_path):
+    ds, model = fitted
+    s = _settings()
+    paths = pipeline.export_results(tmp_path, s, model=model)
+    names = {p.name for p in paths}
+    assert {"parafac_3comp_channels.csv", "parafac_3comp_channel_sensitivity.csv",
+            "channel_signals.pdf", "channel_signals.png"} <= names
+    import pandas as pd
+    long = pd.read_csv(tmp_path / "parafac_3comp_channels.csv")
+    assert len(long) == 24 * 2 * 3
+    assert '"channels"' in (tmp_path / "processing_record.json").read_text(encoding="utf-8")
+    # no channels: no channel files
+    none = pipeline.export_results(tmp_path / "none", pipeline.default_settings(), model=model)
+    assert not [p for p in none if "channel" in p.name]
+
+
+def test_report_has_a_channel_section_only_when_channels_are_set(fitted, tmp_path):
+    ds, model = fitted
+    text = write_report(tmp_path / "a.html", _settings(), model=model).read_text("utf-8")
+    assert 'id="channels"' in text and "Sensor channels" in text and "280" in text
+    text = write_report(tmp_path / "b.html", pipeline.default_settings(),
+                        model=model).read_text("utf-8")
+    assert 'id="channels"' not in text

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
     QGroupBox,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -18,12 +19,15 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QTableView,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from eemkit import pipeline, plot
+from eemkit.errors import SettingsError
 from eemkit.gui.common import DataFrameModel, PlotPanel, TaskBar, note, pair, primary, spin
 from eemkit.gui.state import Project
 
@@ -172,11 +176,50 @@ class ParafacTab(QWidget):
         v.addWidget(self.final_text)
         v.addWidget(self.final_plot, 1)
 
+        # sensor channels: which components an LED and filter channel follows
+        self._editing_channels = False
+        self.ch_table = QTableWidget(0, 4)
+        self.ch_table.setHorizontalHeaderLabels(
+            ["Channel", "LED (nm)", "Filter from (nm)", "Filter to (nm)"])
+        self.ch_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.ch_table.setMaximumHeight(150)
+        self.ch_table.itemChanged.connect(self._channels_edited)
+        b_add = QPushButton("Add channel")
+        b_add.clicked.connect(self.add_channel)
+        b_remove = QPushButton("Remove selected")
+        b_remove.clicked.connect(self.remove_channels)
+        self.ch_model = QComboBox()
+        self.ch_model.currentIndexChanged.connect(self.draw_channels)
+        self.ch_status = QLabel("")
+        self.ch_status.setWordWrap(True)
+        self.ch_plot = PlotPanel()
+        self.ch_shares_model = DataFrameModel()
+        ch_shares = QTableView()
+        ch_shares.setModel(self.ch_shares_model)
+        ch_shares.setMaximumHeight(130)
+        page_ch = QWidget()
+        v = QVBoxLayout(page_ch)
+        v.addWidget(note(
+            "A sensor with an LED and an emission filter records one number per sample. The "
+            "signal of a component in a channel is its score × its excitation loading at the "
+            "LED wavelength × its emission loading integrated over the filter band. These "
+            "numbers describe the model, not the sensor: lamp output, detector response and "
+            "filter blocking outside the band are not included."))
+        v.addWidget(pair(QLabel("Model"), self.ch_model))
+        v.addWidget(self.ch_table)
+        v.addWidget(pair(b_add, b_remove))
+        v.addWidget(self.ch_status)
+        v.addWidget(self.ch_plot, 1)
+        v.addWidget(QLabel("Share of each component in the channel signal, % (mean over "
+                           "samples, with the range between samples)"))
+        v.addWidget(ch_shares)
+
         self.results = QTabWidget()
         self.results.addTab(page_summary, "Number of components")
         self.results.addTab(page_load, "Components by model")
         self.results.addTab(page_out, "Outliers")
         self.results.addTab(page_final, "Final model")
+        self.results.addTab(page_ch, "Sensor channels")
 
         split = QSplitter()
         split.addWidget(scroll)
@@ -216,6 +259,126 @@ class ParafacTab(QWidget):
         self.f_init.setValue(int(fin["n_init"]))
         self.f_tol.setText(f"{float(fin['tol']):g}")
         self.f_iter.setValue(int(fin["max_iter"]))
+        if not self._editing_channels:
+            self._fill_channels(self.project.settings.get("channels") or {})
+
+    # sensor channels ---------------------------------------------------- #
+
+    def _fill_channels(self, channels: dict) -> None:
+        self.ch_table.blockSignals(True)
+        self.ch_table.setRowCount(0)
+        for name, c in channels.items():
+            self._append_row([str(name), f"{float(c['ex']):g}", f"{float(c['em'][0]):g}",
+                              f"{float(c['em'][1]):g}"])
+        self.ch_table.blockSignals(False)
+
+    def _append_row(self, cells: list[str]) -> None:
+        r = self.ch_table.rowCount()
+        self.ch_table.insertRow(r)
+        for c, text in enumerate(cells):
+            self.ch_table.setItem(r, c, QTableWidgetItem(text))
+
+    def add_channel(self) -> None:
+        """A new row with starting values to edit (a protein-like LED and filter)."""
+        taken = {self.ch_table.item(r, 0).text() for r in range(self.ch_table.rowCount())
+                 if self.ch_table.item(r, 0)}
+        k = 1
+        while f"Ch{k}" in taken:
+            k += 1
+        self.ch_table.blockSignals(True)
+        self._append_row([f"Ch{k}", "280", "330", "370"])
+        self.ch_table.blockSignals(False)
+        self._channels_edited()
+
+    def remove_channels(self) -> None:
+        rows = sorted({i.row() for i in self.ch_table.selectedIndexes()}, reverse=True)
+        self.ch_table.blockSignals(True)
+        for r in rows:
+            self.ch_table.removeRow(r)
+        self.ch_table.blockSignals(False)
+        self._channels_edited()
+
+    def _read_channels(self) -> dict:
+        """The table as the ``channels`` settings; raises ValueError for a bad row."""
+        out: dict = {}
+        for r in range(self.ch_table.rowCount()):
+            cells = [(self.ch_table.item(r, c).text() if self.ch_table.item(r, c) else "").strip()
+                     for c in range(4)]
+            if not any(cells):
+                continue
+            try:
+                ex, lo, hi = (float(x.replace(",", ".")) for x in cells[1:])
+            except ValueError:
+                raise ValueError(f"Row {r + 1}: the LED and the filter limits must be numbers "
+                                 "(nm).") from None
+            if cells[0] in out:
+                raise ValueError(f"The channel name {cells[0]!r} is used twice.")
+            out[cells[0]] = {"ex": ex, "em": [lo, hi]}
+        return out
+
+    def _channels_edited(self, *_args) -> None:
+        try:
+            channels = self._read_channels()
+            pipeline.channel_specs({"channels": channels})
+        except (ValueError, SettingsError) as exc:
+            self.ch_status.setText(str(exc))
+            return
+        self.ch_status.setText("")
+        self._editing_channels = True
+        try:
+            self.project.set_channels(channels)
+        finally:
+            self._editing_channels = False
+        self.draw_channels()
+
+    def _refresh_channel_models(self) -> None:
+        """The models channels can be computed on: the final one and the exploratory ones."""
+        keep = self.ch_model.currentData()
+        items: list[tuple[str, object]] = []
+        if self.project.model is not None:
+            items.append((f"Final model ({self.project.model.sizes['component']} components)",
+                          "final"))
+        if self.project.exploration is not None:
+            items += [(f"Exploratory, {r} components", r) for r in self.project.exploration.models]
+        self.ch_model.blockSignals(True)
+        self.ch_model.clear()
+        for text, key in items:
+            self.ch_model.addItem(text, key)
+        k = self.ch_model.findData(keep)
+        self.ch_model.setCurrentIndex(k if k >= 0 else 0)
+        self.ch_model.blockSignals(False)
+        self.draw_channels()
+
+    def draw_channels(self) -> None:
+        key = self.ch_model.currentData()
+        channels = self.project.settings.get("channels") or {}
+        if key is None:
+            self.ch_plot.clear("Fit the final model or run the exploratory models first.")
+            self.ch_shares_model.set_frame(pd.DataFrame())
+            return
+        if not channels:
+            self.ch_plot.clear("Add a channel: the LED wavelength and the filter band.")
+            self.ch_shares_model.set_frame(pd.DataFrame())
+            return
+        model = self.project.model if key == "final" else self.project.exploration.models[key]
+        try:
+            sig = pipeline.channel_signals(model, self.project.settings)
+        except SettingsError as exc:
+            self.ch_status.setText(str(exc))
+            self.ch_plot.clear("The channels do not fit the wavelength range of the model.")
+            self.ch_shares_model.set_frame(pd.DataFrame())
+            return
+        self.ch_status.setText("")
+        self.ch_plot.show_figure(plot.channel_signals(sig, model, width=9.0,
+                                                      cmap=self.project.eem_colours))
+        share = 100 * sig["share"]
+        lo, mean, hi = (share.min("sample"), share.mean("sample"), share.max("sample"))
+        table = pd.DataFrame(
+            {f"C{c}": [f"{mean.values[i, j]:.0f}  ({lo.values[i, j]:.0f}–{hi.values[i, j]:.0f})"
+                       for i in range(sig.sizes["channel"])]
+             for j, c in enumerate(sig["component"].values)},
+            index=pd.Index([str(c) for c in sig["channel"].values], name="channel"))
+        self.ch_shares_model.set_frame(table)
 
     def _exploration_settings(self) -> dict | None:
         try:
@@ -344,6 +507,9 @@ class ParafacTab(QWidget):
             self.draw_loadings()
             if self.project.model is not None:
                 self.show_final()
+        if what in ("exploration", "final", "corrected", "settings", "display") \
+                and not (what == "settings" and self._editing_channels):
+            self._refresh_channel_models()
 
     def show_exploration(self) -> None:
         ex = self.project.exploration

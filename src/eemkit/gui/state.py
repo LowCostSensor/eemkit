@@ -112,6 +112,17 @@ class Project(QObject):
         if invalidates:
             self.invalidate(invalidates)
 
+    def set_channels(self, channels: dict) -> None:
+        """Replace the filter-based channels (``set_settings`` would only add to them).
+
+        Channels do not change any computed result, so nothing is invalidated.
+        """
+        if channels == (self.settings.get("channels") or {}):
+            return
+        self.settings["channels"] = channels
+        self.dirty = True
+        self.changed.emit("settings")
+
     @property
     def eem_colours(self) -> str:
         """Name of the EEM colour map (a key of :data:`eemkit.plot.COLORMAPS`)."""

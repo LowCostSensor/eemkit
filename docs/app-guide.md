@@ -259,6 +259,15 @@ In the `Final model` box set the number of components, initialisations (20), tol
 
 *The final Ombrone model (20 initialisations, all at the same minimum). The line at the top gives explained variance, core consistency, initialisations at the minimum and the split-half verdict.*
 
+### “Sensor channels” view
+
+For a sensor with an LED and an emission filter: which components does each channel follow? One row per channel in the table: its name, the **LED wavelength** and the **filter band** (from, to), all in nm. `Add channel` inserts a row with starting values to edit (LED 280 nm, filter 330–370 nm); `Remove selected` deletes the selected rows. The `Model` menu chooses the final model or any exploratory model, so channels can be tried before the final fit.
+
+* **Left figure:** the mean modelled EEM with each channel drawn on it: the LED excitation is the height of the bar, the filter band its length. A channel on the edge of a humic peak instead of the protein peak is visible at once.
+* **Right figure and table:** the share of each component in the signal of each channel, mean over samples; the table also gives the range between samples (min–max). A channel meant to follow the protein-like component should have most of its signal there in every sample.
+* The signal of a component in a channel is its score × its excitation loading at the LED wavelength × its emission loading integrated over the filter band. The numbers describe the model, not the sensor: lamp output, detector response and filter blocking outside the band are not included.
+* A channel outside the wavelength range of the model is refused with a message. The channels are saved in the project (`[channels.NAME]`, with `ex` and `em = [from, to]`) and written on export. LED spectra and filter transmission curves (not just a line and a flat band) are available from Python: see [PARAFAC](parafac.md).
+
 ## 5 · Rivers and dates
 
 Compares campaigns, sites and rivers for any variable of the indices table or of the final model: indices, CDOM metrics, the Fmax of each component and its share of the total (`C1_pct`, …). The methods are described in [Rivers, sites and dates](campaigns.md).
@@ -312,9 +321,10 @@ Compares campaigns, sites and rivers for any variable of the indices table or of
 | `parafac_exploration.csv` | The “Number of components” table. |
 | `parafac_3comp_fmax.csv` | Fmax of every component per sample, in Raman units. |
 | `parafac_3comp_ex_loadings.csv` `parafac_3comp_em_loadings.csv` | Excitation and emission loadings. |
+| `parafac_3comp_channels.csv` `parafac_3comp_channel_sensitivity.csv` | With sensor channels defined: signal and share of each component in each channel per sample, and the signal per unit score of each channel (see “Sensor channels”). |
 | `parafac_3comp_openfluor.txt` | File for OpenFluor. Check it against the current upload template before submitting it. |
 | `parafac_3comp_model.nc` | The complete model. |
-| `figures/` | Number-of-components diagnostics, components and leverage, as PDF and PNG, in the colours chosen in `View` → `EEM colours`. |
+| `figures/` | Number-of-components diagnostics, components and leverage (and the sensor channels, when defined), as PDF and PNG, in the colours chosen in `View` → `EEM colours`. |
 | `report.html` | One page with the whole analysis: samples, every processing step, indices, the exploratory models, the final model with its validation, outlier diagnostics (residual EEMs of the worst-fitted samples, residuals by wavelength) and the settings. The figures are inside the page, so it can be e-mailed or archived as it is. |
 
 The `3` in the names is the number of components of the final model.

@@ -3,7 +3,7 @@
 The settings are a nested dictionary, stored as TOML, with the sections
 ``project``, ``spectral``, ``inner_filter``, ``raman``, ``scatter``, ``crop``,
 ``indices``, ``absorbance``, ``campaigns``, ``parafac`` (with ``split_half``
-and ``final``), ``missing`` and ``display``. The same file drives scripts and
+and ``final``), ``channels``, ``missing`` and ``display``. The same file drives scripts and
 the desktop application, so every analysis can be rerun from the command line.
 
 Steps, in the enforced order of the corrections:
@@ -101,6 +101,10 @@ DEFAULTS: dict = {
         "split_half": {"n_init": 5, "stratify": [], "random_state": 0, "threshold": 0.95},
         "final": {"rank": None, "tol": 1e-8, "max_iter": 20000, "n_init": 20},
     },
+    # Filter-based optical channels to check against the PARAFAC components, one table per
+    # channel: [channels.T] ex = LED wavelength (nm), em = [filter low, filter high] (nm).
+    # Names: letters, digits, "_" and "-" only. Empty = no channels.
+    "channels": {},
     "missing": {"policy": "error"},
     # EEM colour map of the figures: "eclipse" (Cary Eclipse rainbow) or "blues"
     "display": {"eem_colours": "eclipse"},
@@ -430,6 +434,52 @@ def fit_final(ds: xr.Dataset, settings: dict, *, progress: Progress | None = Non
 # Campaigns, sites and rivers
 # --------------------------------------------------------------------------- #
 
+_CHANNEL_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def channel_specs(settings: dict) -> dict:
+    """The ``channels`` section as the argument of :func:`eemkit.parafac.component_signals`.
+
+    Each channel is ``{"ex": LED wavelength, "em": [filter low, filter high]}`` (nm);
+    names may hold letters, digits, ``_`` and ``-`` only (they are TOML keys and
+    column labels). Raises :class:`SettingsError` for anything else.
+    """
+    out = {}
+    for name, c in (settings.get("channels") or {}).items():
+        if not _CHANNEL_NAME.match(str(name)):
+            raise SettingsError(f"channels.{name}: use letters, digits, '_' or '-' in the name")
+        try:
+            ex = float(c["ex"])
+            lo, hi = (float(v) for v in c["em"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SettingsError(f"channels.{name} needs ex = LED wavelength (nm) and "
+                                "em = [filter low, filter high] (nm)") from exc
+        if not lo < hi:
+            raise SettingsError(f"channels.{name}: the filter band {lo:g}-{hi:g} nm is empty")
+        out[str(name)] = {"ex": ex, "em": (lo, hi)}
+    return out
+
+
+def channel_signals(model: xr.Dataset, settings: dict, reduce: str = "integral"
+                    ) -> xr.Dataset | None:
+    """Signal of each component in each channel of ``settings['channels']`` (None if none).
+
+    See :func:`eemkit.parafac.component_signals`.
+    """
+    specs = channel_specs(settings)
+    return P.component_signals(model, specs, reduce=reduce) if specs else None
+
+
+def channel_tables(signals: xr.Dataset) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """``signals`` as two tables: per sample, channel and component (signal, share),
+    and the sensitivity of each channel to each component (rows = channels)."""
+    long = signals[["signal", "share"]].to_dataframe().reset_index()
+    long["component"] = "C" + long["component"].astype(str)
+    sens = signals["sensitivity"].to_pandas()
+    sens.columns = [f"C{c}" for c in sens.columns]
+    return long[["sample", "channel", "component", "signal", "share"]], sens
+
+
 def sample_table(indices: pd.DataFrame | None, model: xr.Dataset | None = None) -> pd.DataFrame:
     """Indices and CDOM metrics, plus Fmax and the share of each component if a model is given.
 
@@ -617,6 +667,14 @@ def export_results(
         if split is not None:
             record["parafac"]["split_half_min_tcc"] = split.attrs["min_tcc"]
             record["parafac"]["split_half_validated"] = bool(split.attrs["validated"])
+        sig = channel_signals(model, settings)
+        if sig is not None:
+            long, sens = channel_tables(sig)
+            written.append(out / f"parafac_{r}comp_channels.csv")
+            long.to_csv(written[-1], index=False, float_format="%.6g")
+            written.append(out / f"parafac_{r}comp_channel_sensitivity.csv")
+            sens.rename_axis("channel").to_csv(written[-1], float_format="%.6g")
+            record["channels"] = channel_specs(settings)
     if figures:
         written += export_figures(out / "figures", settings, exploration, model, split)
     if report:
@@ -650,5 +708,10 @@ def export_figures(out: Path, settings: dict, exploration: Exploration | None,
         for name, fig in (("components", plot.components(model, split, cmap=cmap)),
                           ("leverage", plot.leverage(model))):
             written += plot.save(fig, out / name)
+            plt.close(fig)
+        sig = channel_signals(model, settings)
+        if sig is not None:
+            fig = plot.channel_signals(sig, model, cmap=cmap)
+            written += plot.save(fig, out / "channel_signals")
             plt.close(fig)
     return written

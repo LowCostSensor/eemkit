@@ -110,13 +110,30 @@ def test_full_workflow(qtbot, window, dialogs, tmp_path):
     _idle(qtbot, w)
     assert p.model.sizes["component"] == 2 and "Split-half" in t.final_text.text()
 
+    # sensor channels: an LED and filter channel on the final and the exploratory models
+    assert t.ch_model.count() == 3                   # final model + two exploratory ranks
+    t.add_channel()
+    assert p.settings["channels"] == {"Ch1": {"ex": 280.0, "em": [330.0, 370.0]}}
+    assert t.ch_plot.figure is not None and t.ch_shares_model.rowCount() == 1
+    t.ch_table.item(0, 1).setText("999")             # an LED outside the model: refused, said so
+    assert "outside" in t.ch_status.text() and t.ch_shares_model.rowCount() == 0
+    t.ch_table.item(0, 1).setText("280")
+    assert t.ch_status.text() == "" and t.ch_shares_model.rowCount() == 1
+    t.ch_table.item(0, 0).setText("T")
+    assert list(p.settings["channels"]) == ["T"]
+    t.ch_table.item(0, 2).setText("abc")             # not a number: kept out of the settings
+    assert "numbers" in t.ch_status.text() and p.settings["channels"]["T"]["em"] == [330.0, 370.0]
+    t.ch_table.item(0, 2).setText("330")
+    assert t.ch_status.text() == ""
+
     # 5 export
     w.export_tab.meta["creator"].setText("Test Person")
     w.export_tab.export()
     _idle(qtbot, w)
     out = tmp_path / "results"
     for name in ("settings.toml", "processing_record.json", "indices.csv",
-                 "parafac_2comp_openfluor.txt", "figures/components.pdf"):
+                 "parafac_2comp_openfluor.txt", "figures/components.pdf",
+                 "parafac_2comp_channels.csv", "figures/channel_signals.pdf"):
         assert (out / name).is_file(), name
     assert "creator\tTest Person" in (out / "parafac_2comp_openfluor.txt").read_text("utf-8")
     assert not [d for d in dialogs if d[0] in ("warning", "exec")]

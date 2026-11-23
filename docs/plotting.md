@@ -12,6 +12,7 @@ Each function returns a matplotlib figure; `plot.save(fig, "fig1")` writes
 | `spectral_factors(ds)` | the excitation and emission correction factors applied |
 | `rank_diagnostics(table, chosen=3)` | explained variance, core consistency and split-half congruence vs rank, one panel each |
 | `leverage(model, by="river")` | leverage vs residuals, the most extreme samples labelled |
+| `channel_signals(sig, model)` | LED and filter channels on the mean modelled EEM, and the share of each component in each channel |
 | `scores_over(df, cols, x="campaign", by="river")` | mean ± SD per group over time, samples as faint points |
 
 Widths default to two journal columns (180 mm); `plot.SINGLE_COLUMN` is 85 mm.
