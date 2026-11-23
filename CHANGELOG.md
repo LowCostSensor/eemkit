@@ -3,7 +3,10 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.4.0 (2026-11-23)
+
+Sensor channels (LED and filter) in the application, the figures and the
+report. Nothing that existed before changes.
 
 * **Sensor channels in the application, the figures and the report.** The
   PARAFAC page has a new view, `Sensor channels`: type the LED wavelength and
