@@ -3,6 +3,12 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## 0.4.1 (2026-11-23)
+
+Documentation only: the README figure now shows the PARAFAC model and the
+weight of each component in the application (the PyPI page takes its text
+and image from the README of the released version). No code changes.
+
 ## 0.4.0 (2026-11-23)
 
 Sensor channels (LED and filter) in the application, the figures and the
