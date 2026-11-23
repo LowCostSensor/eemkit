@@ -3,9 +3,12 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 0.3.0 (2026-11-23)
 
-* `parafac.component_signals(model, channels)`: the signal each PARAFAC
+A new function to check what a filter-based optical channel sees; nothing
+that existed before changes.
+
+* New: `parafac.component_signals(model, channels)`: the signal each PARAFAC
   component gives in an LED and filter channel, for every sample (score x
   excitation loading weighted by the LED x emission loading integrated over the
   filter), with the share of each component and the channel's sensitivity.
