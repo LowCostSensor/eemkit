@@ -3,6 +3,15 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+* `parafac.component_signals(model, channels)`: the signal each PARAFAC
+  component gives in an LED and filter channel, for every sample (score x
+  excitation loading weighted by the LED x emission loading integrated over the
+  filter), with the share of each component and the channel's sensitivity.
+  Meant to check whether a channel (e.g. a tryptophan-like one) follows the
+  component it is meant to follow.
+
 ## 0.2.0 (2026-11-06)
 
 Other fluorometers, diluted samples, zap, PARAFAC model comparison and

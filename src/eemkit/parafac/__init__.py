@@ -1,6 +1,7 @@
 """Non-negative PARAFAC with the diagnostics of Murphy et al. (2013)."""
 
 from eemkit.parafac._cp import nn_parafac
+from eemkit.parafac.channels import component_signals
 from eemkit.parafac.compare import compare_models, compare_ranks, component_correlations
 from eemkit.parafac.diagnostics import (
     core_consistency,
@@ -26,6 +27,7 @@ __all__ = [
     "compare_models",
     "compare_ranks",
     "component_correlations",
+    "component_signals",
     "core_consistency",
     "eemqual",
     "fit_parafac",
