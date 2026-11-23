@@ -15,6 +15,7 @@ scatter) are shown in light grey.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -251,6 +252,84 @@ def components(model: xr.Dataset, split_half: xr.Dataset | None = None, *,
             handles.append(mpl.lines.Line2D([], [], color=AXIS, lw=0.8,
                                             label="Split-half models"))
         fig.legend(handles=handles, loc="outside lower center", ncols=len(handles))
+    return fig
+
+
+_HATCHES = ("", "////", "....", "xxxx", "\\\\\\\\", "++++", "----", "oooo")
+
+
+def channel_signals(signals: xr.Dataset, model: xr.Dataset | None = None, *,
+                    names: Sequence[str] | None = None, width: float = DOUBLE_COLUMN,
+                    cmap="blues"):
+    """What each LED and filter channel sees: where it sits, and which components it follows.
+
+    ``signals`` is the output of :func:`eemkit.parafac.component_signals`. Right
+    panel: one bar per channel, split by the share of each component in its
+    signal (mean over the samples; a component is also told apart by its hatch,
+    not by colour alone). With ``model`` a left panel shows the mean modelled
+    EEM with each channel on it: the LED excitation (vertical position) and
+    the filter band (horizontal extent), so a channel that sits on the edge of
+    a humic peak instead of the protein peak is visible at a glance.
+    """
+    from eemkit.parafac.model import model_eem
+
+    chan = [str(c) for c in signals["channel"].values]
+    comp = [int(c) for c in signals["component"].values]
+    names = list(names) if names is not None else [f"C{c}" for c in comp]
+    if len(comp) > len(CATEGORICAL):
+        raise ValueError(f"at most {len(CATEGORICAL)} components can be drawn")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)       # all-NaN shares: drawn as 0
+        mean = np.nan_to_num(np.nanmean(signals["share"].values, axis=0))   # (channel, comp)
+    ncols = 2 if model is not None else 1
+    with style():
+        fig, axes = plt.subplots(
+            1, ncols, figsize=(width if model is not None else width * 0.6,
+                               width * (0.42 if model is not None else 0.3)),
+            squeeze=False, layout="constrained",
+            width_ratios=[1, 1.15] if model is not None else None)
+        if model is not None:
+            ax = axes[0, 0]
+            mean_eem = model_eem(model).mean("sample")
+            mean_eem.attrs["units"] = model["scores"].attrs.get("units", "")
+            eem(ax, mean_eem, colorbar=True, label="Mean modelled intensity", cmap=cmap)
+            ax.set_title("Where the channels sit", loc="left")
+            for k, name in enumerate(chan):
+                x0, x1 = float(signals["em_min"][k]), float(signals["em_max"][k])
+                y0, y1 = float(signals["ex_min"][k]), float(signals["ex_max"][k])
+                if y1 - y0 < 1e-9:                       # LED line: a bar over the filter band
+                    xs, ys = [x0, x1], [y0, y0]
+                    ax.plot(xs, ys, color="white", lw=4.2, solid_capstyle="butt", zorder=3)
+                    ax.plot(xs, ys, color=INK, lw=2.2, solid_capstyle="butt", zorder=4)
+                else:                                     # LED band: a box
+                    ax.add_patch(mpl.patches.Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False,
+                                                       ec="white", lw=3.2, zorder=3))
+                    ax.add_patch(mpl.patches.Rectangle((x0, y0), x1 - x0, y1 - y0, fill=False,
+                                                       ec=INK, lw=1.6, zorder=4))
+                ax.annotate(name, (x1, (y0 + y1) / 2), xytext=(4, 0), textcoords="offset points",
+                            va="center", fontsize=7, color=INK, zorder=5,
+                            bbox={"fc": "white", "ec": "none", "alpha": 0.8, "pad": 1.0})
+        ax = axes[0, ncols - 1]
+        y = np.arange(len(chan))[::-1]
+        left = np.zeros(len(chan))
+        for f in range(len(comp)):
+            pct = 100 * mean[:, f]
+            ax.barh(y, pct, left=left, height=0.62, color=_colour(f), hatch=_HATCHES[f],
+                    ec="white", lw=0.8, label=names[f])
+            for yi, l0, w in zip(y, left, pct, strict=True):
+                if w >= 9:
+                    ax.text(l0 + w / 2, yi, f"{w:.0f} %", ha="center", va="center", fontsize=6.5,
+                            color=INK, bbox={"fc": "white", "ec": "none", "alpha": 0.85,
+                                             "pad": 1.0})
+            left = left + pct
+        ax.set_yticks(y, chan)
+        ax.set_xlim(0, 100)
+        ax.set_ylim(-0.6, len(chan) - 0.4)
+        ax.set_xlabel("Share of the channel signal (%), mean over samples")
+        ax.set_title("Which components it follows", loc="left")
+        ax.xaxis.grid(True)
+        ax.set_axisbelow(True)
+        fig.legend(*ax.get_legend_handles_labels(), loc="outside lower center", ncols=len(comp))
     return fig
 
 

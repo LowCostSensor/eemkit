@@ -179,6 +179,16 @@ sits on the protein component or on a humic tail.
 The numbers describe the model, not the sensor: lamp output, detector
 response and filter blocking beyond the table are not included.
 
+`eemkit.plot.channel_signals(sig, model)` draws the channels on the mean
+modelled EEM next to the share of each component in each channel. In the
+application, the `Sensor channels` view of the PARAFAC page does the same for
+the final or an exploratory model, with channels typed as a table (LED
+wavelength, filter from and to); they are saved in the project as
+`[channels.NAME]` with `ex = 280.0` and `em = [330.0, 370.0]`, and written on
+export (`parafac_*comp_channels.csv`, `figures/channel_signals`) and in the
+HTML report. LED spectra and filter transmission tables are available from
+Python only.
+
 ## References
 
 Andersson, C.A., Bro, R. (2000) *Chemometrics and Intelligent Laboratory Systems* 52, 1–4 ·

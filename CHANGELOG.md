@@ -3,6 +3,22 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+* **Sensor channels in the application, the figures and the report.** The
+  PARAFAC page has a new view, `Sensor channels`: type the LED wavelength and
+  the filter band of each channel and see, for the final or any exploratory
+  model, which components it follows (the channels on the mean modelled EEM,
+  the share of each component per channel with its range between samples).
+  The channels are saved in the project (`[channels.NAME]`), and with them
+  the export writes `parafac_*comp_channels.csv`,
+  `parafac_*comp_channel_sensitivity.csv` and `figures/channel_signals`; the
+  HTML report gets a `Sensor channels` section. New figure
+  `plot.channel_signals`; `pipeline.channel_signals`, `channel_specs` and
+  `channel_tables` do the same from scripts and the command line
+  (`eemkit run`). `component_signals` now also returns where each channel
+  sits (`ex_min`, `ex_max`, `em_min`, `em_max`).
+
 ## 0.3.0 (2026-11-23)
 
 A new function to check what a filter-based optical channel sees, and a fix

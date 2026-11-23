@@ -162,7 +162,7 @@ def write_report(
     from eemkit import parafac as P
     from eemkit import plot
     from eemkit.core.history import get_history
-    from eemkit.pipeline import dumps_settings, versions
+    from eemkit.pipeline import channel_signals, channel_specs, dumps_settings, versions
 
     del matplotlib  # imported only to fail early when it is missing
     path = Path(path)
@@ -276,6 +276,30 @@ def write_report(
                  "<code>parafac_*comp_fmax.csv</code>.</p>"
                  + _table(fmax.describe().T[["mean", "std", "min", "max"]]))
         section("model", "Final PARAFAC model", body)
+
+        # --- filter-based channels ---------------------------------------------
+        sig = channel_signals(model, settings)
+        if sig is not None:
+            specs = channel_specs(settings)
+            rows = pd.DataFrame([
+                {"channel": k, "LED (nm)": v["ex"],
+                 "filter (nm)": f"{v['em'][0]:g}-{v['em'][1]:g}"} for k, v in specs.items()])
+            share = (100 * sig["share"].mean("sample")).to_pandas()
+            share.columns = [f"C{c} share (%)" for c in share.columns]
+            body = ("<p>What each LED and filter channel would see in these samples: the signal "
+                    "of a component in a channel is its score &times; its excitation loading at "
+                    "the LED wavelength &times; its emission loading integrated over the "
+                    "filter. The numbers describe the model, not the sensor: lamp output, "
+                    "detector response and filter blocking outside the band are not "
+                    "included.</p>" + _table(rows, index=False))
+            body += _figure(plot.channel_signals(sig, model, cmap=cmap),
+                            "Channels on the mean modelled EEM (left) and the share of each "
+                            "component in the signal of each channel, mean over samples (right).")
+            body += ("<h3>Share of each component, mean over samples</h3>"
+                     + _table(share.rename_axis("channel"), digits=1)
+                     + "<p>The signal of every sample is in "
+                     "<code>parafac_*comp_channels.csv</code>.</p>")
+            section("channels", "Sensor channels", body)
 
         # --- outliers ---------------------------------------------------------
         diag = P.sample_diagnostics(model)

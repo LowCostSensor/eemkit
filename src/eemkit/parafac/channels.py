@@ -121,7 +121,7 @@ def component_signals(model: xr.Dataset, channels: Mapping[str, Mapping],
     ex, em = model["ex"].values.astype(float), model["em"].values.astype(float)
     B, C = model["ex_loadings"].values, model["em_loadings"].values
     scores = model["scores"].values
-    names, sens = list(channels), []
+    names, sens, extent = list(channels), [], []
     for name in names:
         spec = channels[name]
         if "ex" not in spec or "em" not in spec:
@@ -138,7 +138,8 @@ def component_signals(model: xr.Dataset, channels: Mapping[str, Mapping],
         if reduce == "mean":
             em_int = em_int / area
         sens.append(ex_eff * em_int)
-    sens = np.array(sens)                                      # (channel, component)
+        extent.append((wl_ex.min(), wl_ex.max(), wl_em.min(), wl_em.max()))
+    sens = np.array(sens)                                    # (channel, component)
     signal = scores[:, None, :] * sens[None, :, :]             # (sample, channel, component)
     total = signal.sum(axis=2)
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -146,8 +147,12 @@ def component_signals(model: xr.Dataset, channels: Mapping[str, Mapping],
     units = model["scores"].attrs.get("units", "")
     unit = (f"{units} nm" if units else "nm") if reduce == "integral" else units
     dims = (SAMPLE_DIM, "channel", "component")
+    ext = np.array(extent, float)
     coords = {SAMPLE_DIM: model[SAMPLE_DIM].values, "channel": names,
-              "component": model["component"].values}
+              "component": model["component"].values,
+              # where each channel sits (nm): LED range and filter range, for the figures
+              "ex_min": ("channel", ext[:, 0]), "ex_max": ("channel", ext[:, 1]),
+              "em_min": ("channel", ext[:, 2]), "em_max": ("channel", ext[:, 3])}
     out = xr.Dataset(
         {"signal": (dims, signal, {"units": unit, "long_name": "signal of each component"}),
          "total": ((SAMPLE_DIM, "channel"), total, {"units": unit}),
