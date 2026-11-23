@@ -149,6 +149,36 @@ the same way; a warning says when their processing history differs.
 sample used to build the model: the model does not describe them well, and
 they may contain a component the model does not have.
 
+## Signal of each component in an LED and filter channel
+
+```python
+ch = {"T": {"ex": 280.0, "em": (330.0, 370.0)},        # LED line, flat filter band (nm)
+      "H": {"ex": 330.0, "em": ([420, 440, 480], [0.0, 0.8, 0.0])}}   # filter table
+sig = eemkit.parafac.component_signals(model, ch)
+sig["signal"]        # sample x channel x component
+sig["share"]         # each component's share of the channel signal
+sig["sensitivity"]   # channel x component: signal per unit score
+```
+
+A sensor with an LED and an emission filter records one number per sample.
+The fitted model says how much of it each component accounts for: the
+component's score times its excitation loading at the LED wavelength times its
+emission loading integrated over the filter. With `ex` a single wavelength the
+LED is a line; a band `(low, high)` or a table `(wavelengths, weights)` is
+averaged with its weights, so a wide LED is not counted as a single line.
+The filter is a band `(low, high)` with flat transmission or a table
+`(wavelengths, transmission)`; band edges need not fall on the model's grid
+(the loadings are interpolated linearly). Loadings have unit norm and the
+scores carry the scale, so the signal is in the units of the data times nm
+(`reduce="integral"`, the default) or in data units (`reduce="mean"`, the
+integral divided by the filter's area). Wavelengths outside the model's range
+raise an error. `sensitivity` does not depend on the samples: it shows which
+components a channel can see at all, e.g. whether a tryptophan-like channel
+sits on the protein component or on a humic tail.
+
+The numbers describe the model, not the sensor: lamp output, detector
+response and filter blocking beyond the table are not included.
+
 ## References
 
 Andersson, C.A., Bro, R. (2000) *Chemometrics and Intelligent Laboratory Systems* 52, 1–4 ·
