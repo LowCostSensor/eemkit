@@ -11,7 +11,7 @@ matrices (EEMs) of dissolved organic matter: instrument import, corrections,
 fluorescence indices and validated PARAFAC modelling, with every processing
 step recorded so that an analysis can be repeated exactly.
 
-![The eemkit desktop application: corrections of a river-water EEM](https://raw.githubusercontent.com/LowCostSensor/eemkit/main/docs/img/app/2_corrections.png)
+![PARAFAC with eemkit: the three components of the Ombrone 2024 data (EEMs and loadings) and the weight of each component by river and month](https://raw.githubusercontent.com/LowCostSensor/eemkit/main/docs/img/app/0_readme_parafac_dark.png)
 
 ## What it does
 
