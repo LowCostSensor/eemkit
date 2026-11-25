@@ -3,6 +3,19 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## 0.4.2 (2026-11-25)
+
+One fix in the application. Results do not change.
+
+* **Sensor channels view readable on small or scaled screens.** On a laptop
+  screen at 150 % scaling the channel table and the share table took all the
+  height and the figure was squeezed into a strip a few pixels high. The
+  figure now keeps a readable height (the view scrolls when the window is
+  too small), the two tables sit side by side, each only as tall as its rows,
+  and the message line takes no space when it is empty. With many components
+  or a narrow window the tables scroll sideways instead of cutting the numbers
+  (checked with 7 components and 4 channels).
+
 ## 0.4.1 (2026-11-23)
 
 Documentation only: the README figure now shows the PARAFAC model and the
