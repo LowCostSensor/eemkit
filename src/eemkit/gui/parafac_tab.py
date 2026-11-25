@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -59,6 +59,9 @@ def _fit_rows(view, rows: int, lo: int = 1, hi: int = 6) -> None:
     n = min(max(rows, lo), hi)
     h = (view.horizontalHeader().sizeHint().height()
          + n * view.verticalHeader().defaultSectionSize() + 2 * view.frameWidth() + 2)
+    # room for the sideways scroll bar when the columns are wider than the table
+    if view.horizontalHeader().length() + view.verticalHeader().width() > view.width():
+        h += view.horizontalScrollBar().sizeHint().height()
     view.setFixedHeight(h)
 
 
@@ -194,7 +197,10 @@ class ParafacTab(QWidget):
         self.ch_table = QTableWidget(0, 4)
         self.ch_table.setHorizontalHeaderLabels(
             ["Channel", "LED (nm)", "Filter from (nm)", "Filter to (nm)"])
-        self.ch_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # every header readable; a narrow window scrolls the table sideways
+        hh = self.ch_table.horizontalHeader()
+        hh.setSectionResizeMode(QHeaderView.ResizeToContents)
+        hh.setStretchLastSection(True)
         self.ch_table.itemChanged.connect(self._channels_edited)
         b_add = QPushButton("Add channel")
         b_add.clicked.connect(self.add_channel)
@@ -212,7 +218,10 @@ class ParafacTab(QWidget):
         self.ch_shares_model = DataFrameModel()
         self.ch_shares = QTableView()
         self.ch_shares.setModel(self.ch_shares_model)
-        self.ch_shares.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # every cell shown whole ("53 (49–60)"); with many components the table scrolls
+        # sideways instead of cutting the numbers
+        self.ch_shares.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.ch_shares.horizontalHeader().setStretchLastSection(True)
         shares_label = QLabel("Share of each component in the channel signal, % (mean over "
                               "samples; in brackets the lowest and highest sample)")
         shares_label.setWordWrap(True)
@@ -233,14 +242,16 @@ class ParafacTab(QWidget):
         tables.addWidget(left)
         tables.addWidget(right)
         tables.setChildrenCollapsible(False)
+        tables.setStretchFactor(0, 2)
+        tables.setStretchFactor(1, 3)
+        tables.splitterMoved.connect(lambda *_: self._fit_channel_tables())
         content = QWidget()
         v = QVBoxLayout(content)
         v.addWidget(note(
-            "A sensor with an LED and an emission filter records one number per sample. The "
-            "signal of a component in a channel is its score × its excitation loading at the "
-            "LED wavelength × its emission loading integrated over the filter band. These "
-            "numbers describe the model, not the sensor: lamp output, detector response and "
-            "filter blocking outside the band are not included."))
+            "Signal of a component in an LED and filter channel = its score × its excitation "
+            "loading at the LED × its emission loading summed over the filter band. It "
+            "describes the model, not the sensor: lamp output, detector response and filter "
+            "leakage outside the band are left out."))
         v.addWidget(pair(QLabel("Model"), self.ch_model))
         v.addWidget(tables)
         v.addWidget(self.ch_status)
@@ -304,6 +315,11 @@ class ParafacTab(QWidget):
             self._fill_channels(self.project.settings.get("channels") or {})
 
     # sensor channels ---------------------------------------------------- #
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        super().resizeEvent(event)
+        # the tables' widths settle after this event: refit their heights once they have
+        QTimer.singleShot(0, self._fit_channel_tables)
 
     def _ch_say(self, text: str) -> None:
         """A message under the channel table; hidden when empty, so it takes no space."""

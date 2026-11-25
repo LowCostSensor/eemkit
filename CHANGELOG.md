@@ -12,7 +12,9 @@ One fix in the application and a new README figure. Results do not change.
   height and the figure was squeezed into a strip a few pixels high. The
   figure now keeps a readable height (the view scrolls when the window is
   too small), the two tables sit side by side, each only as tall as its rows,
-  and the message line takes no space when it is empty.
+  and the message line takes no space when it is empty. With many components
+  or a narrow window the tables scroll sideways instead of cutting the numbers
+  (checked with 7 components and 4 channels).
 * The README figure now shows the PARAFAC model and the weight of each
   component in the application (the PyPI page takes its text and image from
   the README of the released version).
