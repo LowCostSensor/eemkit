@@ -49,6 +49,19 @@ def _float(edit: QLineEdit) -> float:
     return float(edit.text().strip().replace(",", "."))
 
 
+#: smallest height of the Sensor channels figure (with its toolbar), in logical pixels
+CH_PLOT_MIN_HEIGHT = 380
+
+
+def _fit_rows(view, rows: int, lo: int = 1, hi: int = 6) -> None:
+    """Make a table exactly as tall as its header and ``rows`` rows (between lo and hi;
+    more rows scroll inside the table), so it does not take space from the figure."""
+    n = min(max(rows, lo), hi)
+    h = (view.horizontalHeader().sizeHint().height()
+         + n * view.verticalHeader().defaultSectionSize() + 2 * view.frameWidth() + 2)
+    view.setFixedHeight(h)
+
+
 class ParafacTab(QWidget):
     def __init__(self, project: Project, tasks: TaskBar, parent=None):
         super().__init__(parent)
@@ -182,7 +195,6 @@ class ParafacTab(QWidget):
         self.ch_table.setHorizontalHeaderLabels(
             ["Channel", "LED (nm)", "Filter from (nm)", "Filter to (nm)"])
         self.ch_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.ch_table.setMaximumHeight(150)
         self.ch_table.itemChanged.connect(self._channels_edited)
         b_add = QPushButton("Add channel")
         b_add.clicked.connect(self.add_channel)
@@ -192,13 +204,37 @@ class ParafacTab(QWidget):
         self.ch_model.currentIndexChanged.connect(self.draw_channels)
         self.ch_status = QLabel("")
         self.ch_status.setWordWrap(True)
+        self.ch_status.setVisible(False)
         self.ch_plot = PlotPanel()
+        # the figure keeps a readable height: on a small or scaled screen (a laptop at
+        # 150 %) the page scrolls instead of squeezing the plot into a strip
+        self.ch_plot.setMinimumHeight(CH_PLOT_MIN_HEIGHT)
         self.ch_shares_model = DataFrameModel()
-        ch_shares = QTableView()
-        ch_shares.setModel(self.ch_shares_model)
-        ch_shares.setMaximumHeight(130)
-        page_ch = QWidget()
-        v = QVBoxLayout(page_ch)
+        self.ch_shares = QTableView()
+        self.ch_shares.setModel(self.ch_shares_model)
+        self.ch_shares.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        shares_label = QLabel("Share of each component in the channel signal, % (mean over "
+                              "samples; in brackets the lowest and highest sample)")
+        shares_label.setWordWrap(True)
+        # channels (left) and their shares (right) side by side, each only as tall as its rows
+        left = QWidget()
+        lv = QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, 0, 0)
+        lv.addWidget(self.ch_table)
+        lv.addWidget(pair(b_add, b_remove))
+        lv.addStretch(1)
+        right = QWidget()
+        rv = QVBoxLayout(right)
+        rv.setContentsMargins(0, 0, 0, 0)
+        rv.addWidget(shares_label)
+        rv.addWidget(self.ch_shares)
+        rv.addStretch(1)
+        tables = QSplitter()
+        tables.addWidget(left)
+        tables.addWidget(right)
+        tables.setChildrenCollapsible(False)
+        content = QWidget()
+        v = QVBoxLayout(content)
         v.addWidget(note(
             "A sensor with an LED and an emission filter records one number per sample. The "
             "signal of a component in a channel is its score × its excitation loading at the "
@@ -206,13 +242,18 @@ class ParafacTab(QWidget):
             "numbers describe the model, not the sensor: lamp output, detector response and "
             "filter blocking outside the band are not included."))
         v.addWidget(pair(QLabel("Model"), self.ch_model))
-        v.addWidget(self.ch_table)
-        v.addWidget(pair(b_add, b_remove))
+        v.addWidget(tables)
         v.addWidget(self.ch_status)
         v.addWidget(self.ch_plot, 1)
-        v.addWidget(QLabel("Share of each component in the channel signal, % (mean over "
-                           "samples, with the range between samples)"))
-        v.addWidget(ch_shares)
+        ch_scroll = QScrollArea()
+        ch_scroll.setWidgetResizable(True)
+        ch_scroll.setFrameShape(QScrollArea.NoFrame)
+        ch_scroll.setWidget(content)
+        page_ch = QWidget()
+        pv = QVBoxLayout(page_ch)
+        pv.setContentsMargins(0, 0, 0, 0)
+        pv.addWidget(ch_scroll)
+        self._fit_channel_tables()
 
         self.results = QTabWidget()
         self.results.addTab(page_summary, "Number of components")
@@ -264,6 +305,15 @@ class ParafacTab(QWidget):
 
     # sensor channels ---------------------------------------------------- #
 
+    def _ch_say(self, text: str) -> None:
+        """A message under the channel table; hidden when empty, so it takes no space."""
+        self.ch_status.setText(text)
+        self.ch_status.setVisible(bool(text))
+
+    def _fit_channel_tables(self) -> None:
+        _fit_rows(self.ch_table, self.ch_table.rowCount(), lo=2)
+        _fit_rows(self.ch_shares, self.ch_shares_model.rowCount(), lo=2)
+
     def _fill_channels(self, channels: dict) -> None:
         self.ch_table.blockSignals(True)
         self.ch_table.setRowCount(0)
@@ -271,12 +321,14 @@ class ParafacTab(QWidget):
             self._append_row([str(name), f"{float(c['ex']):g}", f"{float(c['em'][0]):g}",
                               f"{float(c['em'][1]):g}"])
         self.ch_table.blockSignals(False)
+        self._fit_channel_tables()
 
     def _append_row(self, cells: list[str]) -> None:
         r = self.ch_table.rowCount()
         self.ch_table.insertRow(r)
         for c, text in enumerate(cells):
             self.ch_table.setItem(r, c, QTableWidgetItem(text))
+        self._fit_channel_tables()
 
     def add_channel(self) -> None:
         """A new row with starting values to edit (a protein-like LED and filter)."""
@@ -296,6 +348,7 @@ class ParafacTab(QWidget):
         for r in rows:
             self.ch_table.removeRow(r)
         self.ch_table.blockSignals(False)
+        self._fit_channel_tables()
         self._channels_edited()
 
     def _read_channels(self) -> dict:
@@ -321,9 +374,9 @@ class ParafacTab(QWidget):
             channels = self._read_channels()
             pipeline.channel_specs({"channels": channels})
         except (ValueError, SettingsError) as exc:
-            self.ch_status.setText(str(exc))
+            self._ch_say(str(exc))
             return
-        self.ch_status.setText("")
+        self._ch_say("")
         self._editing_channels = True
         try:
             self.project.set_channels(channels)
@@ -350,6 +403,12 @@ class ParafacTab(QWidget):
         self.draw_channels()
 
     def draw_channels(self) -> None:
+        try:
+            self._draw_channels()
+        finally:
+            self._fit_channel_tables()
+
+    def _draw_channels(self) -> None:
         key = self.ch_model.currentData()
         channels = self.project.settings.get("channels") or {}
         if key is None:
@@ -364,11 +423,11 @@ class ParafacTab(QWidget):
         try:
             sig = pipeline.channel_signals(model, self.project.settings)
         except SettingsError as exc:
-            self.ch_status.setText(str(exc))
+            self._ch_say(str(exc))
             self.ch_plot.clear("The channels do not fit the wavelength range of the model.")
             self.ch_shares_model.set_frame(pd.DataFrame())
             return
-        self.ch_status.setText("")
+        self._ch_say("")
         self.ch_plot.show_figure(plot.channel_signals(sig, model, width=9.0,
                                                       cmap=self.project.eem_colours))
         share = 100 * sig["share"]
