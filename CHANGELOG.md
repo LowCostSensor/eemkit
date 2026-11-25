@@ -3,9 +3,9 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## 0.4.1 (2026-11-25)
+## 0.4.2 (2026-11-25)
 
-One fix in the application and a new README figure. Results do not change.
+One fix in the application. Results do not change.
 
 * **Sensor channels view readable on small or scaled screens.** On a laptop
   screen at 150 % scaling the channel table and the share table took all the
@@ -15,9 +15,12 @@ One fix in the application and a new README figure. Results do not change.
   and the message line takes no space when it is empty. With many components
   or a narrow window the tables scroll sideways instead of cutting the numbers
   (checked with 7 components and 4 channels).
-* The README figure now shows the PARAFAC model and the weight of each
-  component in the application (the PyPI page takes its text and image from
-  the README of the released version).
+
+## 0.4.1 (2026-11-23)
+
+Documentation only: the README figure now shows the PARAFAC model and the
+weight of each component in the application (the PyPI page takes its text
+and image from the README of the released version). No code changes.
 
 ## 0.4.0 (2026-11-23)
 
