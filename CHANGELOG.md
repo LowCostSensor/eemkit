@@ -21,6 +21,15 @@ The application for macOS and Linux, and a logo. Results do not change.
   started with `python -m eemkit.gui`), `eemkit.exe` and `eemkit.app`, and the
   logo of the documentation. `packaging/icons/make_icons.py` draws it and
   writes the `.ico`, `.icns` and PNG files.
+* **Start-up screen.** While the application loads (a few seconds), a window
+  shows the logo, the version and the institutions that support eemkit:
+  Università degli Studi di Siena, Università degli Studi di Palermo and
+  National Biodiversity Future Center (Italy); they are also named in
+  *Help > About*. `EEMKIT_NO_SPLASH=1` starts without it.
+* `import eemkit` no longer loads every subpackage at once: `eemkit.pipeline`,
+  `eemkit.stack` and the other names of the package load on first use (so the
+  start-up screen appears before numpy, pandas, xarray and scipy are loaded).
+  Code that uses them does not change.
 * The release workflow checks that the release tag matches the version of the
   package and can be run by hand to build the applications without a release.
 

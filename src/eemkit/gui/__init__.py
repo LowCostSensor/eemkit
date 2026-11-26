@@ -8,6 +8,7 @@ TOML that scripts can run.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -48,7 +49,6 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 1
     from eemkit.gui import theme
-    from eemkit.gui.main_window import MainWindow
 
     argv = sys.argv if argv is None else argv
     _windows_taskbar_id()
@@ -57,8 +57,18 @@ def main(argv: list[str] | None = None) -> int:
     app.setDesktopFileName("eemkit")  # Linux (Wayland): matches eemkit.desktop
     icon = app_icon()
     app.setWindowIcon(icon)
+    splash = None
+    if not os.environ.get("EEMKIT_NO_SPLASH"):
+        from eemkit.gui import splash as start_screen
+
+        splash = start_screen.show_splash()
+    # The main window loads numpy, pandas, xarray, scipy and matplotlib: the slow part.
+    from eemkit.gui.main_window import MainWindow
+
     theme.apply_theme(app, theme.saved_theme())
     window = MainWindow(argv[1] if len(argv) > 1 else None)
     window.setWindowIcon(icon)
     window.show()
+    if splash is not None:
+        start_screen.close_splash(splash, window)
     return app.exec()

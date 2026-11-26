@@ -9,7 +9,11 @@ python -m eemkit.gui       # optionally followed by a project.toml
 ```
 
 The `eemkit-gui` command does the same as `python -m eemkit.gui` when Python's
-`Scripts` folder is on the PATH.
+`Scripts` folder is on the PATH. While it loads, a start-up screen shows the
+logo, the version and the institutions that support eemkit (Università degli
+Studi di Siena, Università degli Studi di Palermo, National Biodiversity
+Future Center, Italy); set the environment variable `EEMKIT_NO_SPLASH=1` to
+start without it.
 
 The application is a front end to `eemkit.pipeline`: it does no processing
 of its own. Its project file is the pipeline's settings TOML, so an analysis

@@ -281,3 +281,21 @@ def test_app_icon(qtbot):
     assert not icon.isNull()
     sizes = {s.width() for s in icon.availableSizes()}
     assert {16, 32, 256} <= sizes
+
+
+def test_splash_screen(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QWidget
+
+    from eemkit.gui import splash
+
+    pm = splash.splash_pixmap(2.0)
+    assert not pm.isNull()
+    assert (pm.width(), pm.height()) == (2 * splash.WIDTH, 2 * splash.HEIGHT)
+    monkeypatch.setattr(splash, "MIN_SECONDS", 0)
+    screen = splash.show_splash()
+    assert screen.isVisible()
+    window = QWidget()
+    qtbot.addWidget(window)
+    window.show()
+    splash.close_splash(screen, window)
+    qtbot.waitUntil(lambda: not screen.isVisible(), timeout=5000)
