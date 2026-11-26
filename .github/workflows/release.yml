@@ -1,7 +1,10 @@
 # Runs when a release is published on GitHub:
 # 1. builds the sdist and wheel and uploads them to PyPI (trusted publishing:
 #    register this repository and the "pypi" environment on pypi.org first);
-# 2. builds the stand-alone Windows application and attaches the zip to the release.
+# 2. builds the stand-alone application for Windows, macOS (Apple silicon) and
+#    Linux, checks that it starts, and attaches the archives to the release.
+# Started by hand (Actions > release > Run workflow, on any branch) it only
+# builds the applications: the archives are kept as artifacts of the run.
 name: release
 
 on:
@@ -25,28 +28,80 @@ jobs:
       - run: python -m build
       - uses: pypa/gh-action-pypi-publish@release/v1
 
-  windows-app:
-    runs-on: windows-latest
+  app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: macos-latest          # Apple silicon (arm64)
+            platform: macos-arm64
+          - os: ubuntu-22.04          # oldest available: the build runs on glibc >= 2.35
+            platform: linux-x86_64
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Qt system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0 libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 libfontconfig1 libxcb-cursor0
       - run: pip install ".[gui]" pyinstaller
+      - name: Archive name (from eemkit.__version__)
+        id: version
+        run: |
+          v=$(python -c "import eemkit; print(eemkit.__version__)")
+          echo "name=eemkit-v$v-${{ matrix.platform }}" >> "$GITHUB_OUTPUT"
+          tag="${{ github.event.release.tag_name }}"
+          if [ "${{ github.event_name }}" = release ] && [ "$tag" != "v$v" ]; then
+            echo "::error::release tag $tag does not match the eemkit version v$v"
+            exit 1
+          fi
       - name: Build
         working-directory: packaging
-        run: pyinstaller eemkit-gui.spec --noconfirm --distpath ${{ runner.temp }}\dist --workpath ${{ runner.temp }}\build
-      - name: Zip
+        run: pyinstaller eemkit-gui.spec --noconfirm --distpath "$RUNNER_TEMP/dist" --workpath "$RUNNER_TEMP/build"
+      - name: Check that the application starts
+        run: |
+          case "${{ runner.os }}" in
+            Windows) exe="$RUNNER_TEMP/dist/eemkit/eemkit.exe" ;;
+            macOS)   exe="$RUNNER_TEMP/dist/eemkit.app/Contents/MacOS/eemkit" ;;
+            Linux)   exe="$RUNNER_TEMP/dist/eemkit/eemkit"; export QT_QPA_PLATFORM=offscreen ;;
+          esac
+          log=$(python -c "import os, tempfile; print(os.path.join(tempfile.gettempdir(), 'eemkit-crash.log'))")
+          "$exe" & pid=$!
+          sleep 30
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::the application closed at start-up"
+            cat "$log" 2>/dev/null || true
+            exit 1
+          fi
+          kill "$pid"
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path "${{ runner.temp }}\dist\eemkit" -DestinationPath "eemkit-${{ github.ref_name }}-windows.zip"
+        run: Compress-Archive -Path "${{ runner.temp }}\dist\eemkit" -DestinationPath "${{ steps.version.outputs.name }}.zip"
+      - name: Archive (macOS)
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent "$RUNNER_TEMP/dist/eemkit.app" "${{ steps.version.outputs.name }}.zip"
+      - name: Archive (Linux)
+        if: runner.os == 'Linux'
+        run: tar -czf "${{ steps.version.outputs.name }}.tar.gz" -C "$RUNNER_TEMP/dist" eemkit
       - uses: actions/upload-artifact@v4
         with:
-          name: eemkit-windows
-          path: eemkit-*-windows.zip
+          name: ${{ steps.version.outputs.name }}
+          path: ${{ steps.version.outputs.name }}.*
+          if-no-files-found: error
       - name: Attach to the release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.ref_name }}" (Get-ChildItem eemkit-*-windows.zip).FullName --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" ${{ steps.version.outputs.name }}.* --clobber

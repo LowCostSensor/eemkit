@@ -1,4 +1,4 @@
-# eemkit
+# <img src="https://raw.githubusercontent.com/LowCostSensor/eemkit/main/docs/img/logo-256.png" alt="" width="48" align="left"> eemkit
 
 [![tests](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml/badge.svg)](https://github.com/LowCostSensor/eemkit/actions/workflows/tests.yml)
 [![docs](https://github.com/LowCostSensor/eemkit/actions/workflows/docs.yml/badge.svg)](https://lowcostsensor.github.io/eemkit/)
@@ -62,7 +62,28 @@ step recorded so that an analysis can be repeated exactly.
   full processing history; one settings file drives both scripts and the
   application.
 
-## Install
+## Download the application (no Python needed)
+
+Each [release](https://github.com/LowCostSensor/eemkit/releases/latest) has a
+stand-alone build of the desktop application; download the file for your
+system from the *Assets* list:
+
+| System | File | Start |
+|---|---|---|
+| Windows 10 or 11, 64-bit | `eemkit-vX.Y.Z-windows.zip` | Unzip, double-click `eemkit.exe` |
+| macOS, Apple silicon (M1 or later) | `eemkit-vX.Y.Z-macos-arm64.zip` | Unzip, move `eemkit.app` to *Applications* |
+| Linux, x86-64 (glibc 2.35 or newer) | `eemkit-vX.Y.Z-linux-x86_64.tar.gz` | `tar -xzf`, run `eemkit/eemkit` |
+
+The builds are not signed. **Windows** may show *Windows protected your PC*:
+click *More info*, then *Run anyway*. **macOS** blocks the first start
+(Gatekeeper): right-click `eemkit.app` and choose *Open*; on macOS 15 and later
+open it once, then click *Open Anyway* in *System Settings > Privacy &
+Security*. **Linux** needs a few Qt system libraries that desktops usually have
+(on Debian or Ubuntu, if it does not start:
+`sudo apt install libxcb-cursor0 libxkbcommon-x11-0 libegl1`). Details are in
+the [download guide](https://lowcostsensor.github.io/eemkit/download/).
+
+## Install with Python
 
 You need Python 3.11 or later (on Windows, tick *Add python.exe to PATH* when
 installing it). The `[gui]` part adds the desktop application and the
@@ -79,9 +100,7 @@ python -m eemkit.gui
 ```
 
 For the library alone, leave out `[gui]` (or use `[plot]` for figures
-without the application). A stand-alone Windows build of the application,
-which needs no Python, is attached to each
-[release](https://github.com/LowCostSensor/eemkit/releases).
+without the application).
 
 To update to the latest release:
 

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>eemkit</title>
+  <rect width="64" height="64" rx="14" fill="#14243d"/>
+  <g transform="rotate(-35 32 32)">
+    <ellipse cx="32" cy="32" rx="26" ry="15" fill="#2a6fb8"/>
+    <ellipse cx="34" cy="32" rx="18" ry="10.5" fill="#22a39a"/>
+    <ellipse cx="36" cy="32" rx="10.5" ry="6.5" fill="#9bd645"/>
+    <ellipse cx="37" cy="32" rx="4.5" ry="3" fill="#fde34a"/>
+  </g>
+</svg>

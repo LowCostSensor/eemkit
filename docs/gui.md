@@ -1,12 +1,19 @@
 # Desktop application
 
+A stand-alone build for Windows, macOS and Linux, which needs no Python, can
+be [downloaded](download.md) from each release. With Python:
+
 ```bash
 python -m pip install "eemkit[gui]"
 python -m eemkit.gui       # optionally followed by a project.toml
 ```
 
 The `eemkit-gui` command does the same as `python -m eemkit.gui` when Python's
-`Scripts` folder is on the PATH.
+`Scripts` folder is on the PATH. While it loads, a start-up screen shows the
+logo, the version and the institutions that support eemkit (Università degli
+Studi di Siena, Università degli Studi di Palermo, National Biodiversity
+Future Center, Italy); set the environment variable `EEMKIT_NO_SPLASH=1` to
+start without it.
 
 The application is a front end to `eemkit.pipeline`: it does no processing
 of its own. Its project file is the pipeline's settings TOML, so an analysis
@@ -90,3 +97,16 @@ on the PATH. On Windows use a short `--distpath` (Qt plugin paths exceed the
 260-character limit in deep folders). The Windows build is about 160 MB. If the
 application closes at start-up, the reason is written to `eemkit-crash.log`
 in the temporary folder.
+
+Build on each system for that system. The result is `dist/eemkit` (with
+`eemkit.exe` or `eemkit`) on Windows and Linux, and `dist/eemkit.app` on macOS
+(signed ad hoc, without an Apple identity). The release workflow
+(`.github/workflows/release.yml`) does the same on GitHub for Windows, macOS
+on Apple silicon and Linux, checks that each build starts, and attaches the
+archives to the release; run it by hand from the *Actions* tab to build them
+without a release.
+
+The icons (`eemkit.ico`, `eemkit.icns`, PNGs) are in `packaging/icons`, made
+from the logo by `python packaging/icons/make_icons.py` (needs Pillow), which
+also writes the window icons in `src/eemkit/gui/icons` and the logo in
+`docs/img`.

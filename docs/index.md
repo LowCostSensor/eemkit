@@ -7,6 +7,9 @@ step recorded so that an analysis can be repeated exactly.
 
 ![The eemkit desktop application](img/app/4c_parafac_final.png)
 
+The desktop application can be [downloaded](download.md) for Windows, macOS
+and Linux and needs no Python.
+
 ## Principles
 
 * **Nothing silent.** Samples, blanks and absorbance spectra are paired in an

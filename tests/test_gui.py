@@ -272,3 +272,30 @@ def test_output_inside_data_folder_is_refused(window, tmp_path):
     p.set_path_setting("data_root", tmp_path / "data")
     assert p.in_data_root(tmp_path / "data" / "out")
     assert not p.in_data_root(tmp_path / "out")
+
+
+def test_app_icon(qtbot):
+    from eemkit.gui import app_icon
+
+    icon = app_icon()
+    assert not icon.isNull()
+    sizes = {s.width() for s in icon.availableSizes()}
+    assert {16, 32, 256} <= sizes
+
+
+def test_splash_screen(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QWidget
+
+    from eemkit.gui import splash
+
+    pm = splash.splash_pixmap(2.0)
+    assert not pm.isNull()
+    assert (pm.width(), pm.height()) == (2 * splash.WIDTH, 2 * splash.HEIGHT)
+    monkeypatch.setattr(splash, "MIN_SECONDS", 0)
+    screen = splash.show_splash()
+    assert screen.isVisible()
+    window = QWidget()
+    qtbot.addWidget(window)
+    window.show()
+    splash.close_splash(screen, window)
+    qtbot.waitUntil(lambda: not screen.isVisible(), timeout=5000)

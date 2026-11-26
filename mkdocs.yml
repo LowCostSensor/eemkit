@@ -8,6 +8,8 @@ copyright: eemkit is free software under the GNU GPL v3.0 or later
 
 theme:
   name: material
+  logo: img/logo.svg
+  favicon: img/logo.svg
   features:
     - navigation.sections
     - navigation.top
@@ -28,6 +30,7 @@ nav:
   - Quick start: quickstart.md
   - Command line: cli.md
   - Desktop application:
+      - Download (no Python): download.md
       - Guide: app-guide.md
       - Installation and build: gui.md
   - Methods:

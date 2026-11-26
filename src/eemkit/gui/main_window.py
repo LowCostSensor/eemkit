@@ -28,6 +28,7 @@ from eemkit.gui.export_tab import ExportTab
 from eemkit.gui.indices_tab import IndicesTab
 from eemkit.gui.parafac_tab import ParafacTab
 from eemkit.gui.project_tab import ProjectTab
+from eemkit.gui.splash import POWERED_BY
 from eemkit.gui.state import Project
 from eemkit.pipeline import versions
 
@@ -47,7 +48,8 @@ Every result can be reproduced from the saved project file with
 <code>eemkit.pipeline</code>.<br><br>
 Methods: inner filter, Kothawala et al. 2013; Raman units, Lawaetz &amp; Stedmon 2009;
 PARAFAC and split-half validation, Murphy et al. 2013; core consistency,
-Bro &amp; Kiers 2003, computed as the N-way toolbox (Andersson &amp; Bro 2000)."""
+Bro &amp; Kiers 2003, computed as the N-way toolbox (Andersson &amp; Bro 2000).<br><br>
+Powered by {', '.join(POWERED_BY[:-1])} and {POWERED_BY[-1]}."""
 
 #: Choices of the View > EEM colours menu (names of eemkit.plot.COLORMAPS).
 EEM_COLOURS = {"eclipse": "Cary Eclipse (violet, blue, green, yellow, red)",
