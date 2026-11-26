@@ -272,3 +272,12 @@ def test_output_inside_data_folder_is_refused(window, tmp_path):
     p.set_path_setting("data_root", tmp_path / "data")
     assert p.in_data_root(tmp_path / "data" / "out")
     assert not p.in_data_root(tmp_path / "out")
+
+
+def test_app_icon(qtbot):
+    from eemkit.gui import app_icon
+
+    icon = app_icon()
+    assert not icon.isNull()
+    sizes = {s.width() for s in icon.availableSizes()}
+    assert {16, 32, 256} <= sizes

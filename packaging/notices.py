@@ -48,12 +48,13 @@ The application uses Qt and Qt for Python (PySide6, shiboken6) under the GNU
 Lesser General Public License v3.0 (LGPL-3.0.txt; it builds on the GNU GPL
 v3.0, in LICENSE.txt). They are not modified. Their source code is available
 from https://code.qt.io and https://download.qt.io/official_releases/QtForPython/.
-The Qt and PySide6 libraries are separate files in the _internal folder and
-can be replaced with other compatible builds of the same version.
+The Qt and PySide6 libraries are separate files (in the _internal folder, or
+in Contents/Frameworks of eemkit.app on macOS) and can be replaced with other
+compatible builds of the same version.
 
 PyInstaller
 -----------
-The program that starts the application (eemkit.exe) is built with
+The program that starts the application (eemkit or eemkit.exe) is built with
 PyInstaller (https://pyinstaller.org). Its bootloader is under the GNU GPL
 v2.0 or later with an exception that allows its use in programs under any
 licence.

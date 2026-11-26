@@ -3,6 +3,27 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## 0.5.0 (2026-11-26)
+
+The application for macOS and Linux, and a logo. Results do not change.
+
+* **Stand-alone application for Windows, macOS and Linux.** Each release now
+  has, besides the Windows zip, a build for Apple-silicon Macs
+  (`eemkit-vX.Y.Z-macos-arm64.zip`, with `eemkit.app`) and for Linux x86-64
+  (`eemkit-vX.Y.Z-linux-x86_64.tar.gz`, glibc 2.35 or newer, with
+  `install-desktop-entry.sh` to add it to the applications menu). Every build
+  is checked to start before it is attached to the release. The builds are
+  not signed: the [download guide](https://lowcostsensor.github.io/eemkit/download/)
+  explains how to open them the first time (SmartScreen on Windows, Gatekeeper
+  on macOS) and which Qt system libraries Linux may need.
+* **Logo and application icon.** eemkit has a logo, the contour plot of a
+  fluorescence peak. It is the icon of the window, the taskbar (also when
+  started with `python -m eemkit.gui`), `eemkit.exe` and `eemkit.app`, and the
+  logo of the documentation. `packaging/icons/make_icons.py` draws it and
+  writes the `.ico`, `.icns` and PNG files.
+* The release workflow checks that the release tag matches the version of the
+  package and can be run by hand to build the applications without a release.
+
 ## 0.4.2 (2026-11-25)
 
 One fix in the application. Results do not change.
