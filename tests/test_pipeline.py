@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from conftest import cary60_text, eclipse_text
 
-from eemkit import load_dataset, pipeline, read_pairing
+from eemkit import get_history, load_dataset, pipeline, read_pairing
 from eemkit.errors import Cancelled, SettingsError
 from eemkit.io.discover import classify, scan_folder, suggest_pairing
 
@@ -183,6 +183,46 @@ def test_full_chain_recovers_components_and_exports(data_root, tmp_path):
     assert '"inner_filter"' in record or "correct_inner_filter" in record
     fmax = pd.read_csv(Path(s["project"]["output_dir"], "parafac_2comp_fmax.csv"), index_col=0)
     assert fmax.shape == (8, 2)
+
+
+def test_inner_filter_skipped_without_absorbance(data_root, tmp_path):
+    """A fluorometer alone (no absorbance): the correction is left out only with a reason."""
+    s = _settings(data_root, tmp_path)
+    table = pd.read_csv(tmp_path / "pairing.csv", dtype=str, keep_default_na=False)
+    table = table.drop(columns=["abs_file", "abs_blank_file"])
+    table.to_csv(tmp_path / "pairing.csv", index=False)
+    s["inner_filter"].update(absorbance_path_length_cm=None, fluorescence_path_length_cm=None)
+    raw = pipeline.load(s)
+    assert "absorbance" not in raw
+    with pytest.raises(SettingsError, match="path_length_cm"):
+        pipeline.correct_until_raman(raw, s)
+    s["inner_filter"]["apply"] = False
+    with pytest.raises(SettingsError, match="skip_reason"):
+        pipeline.correct_until_raman(raw, s)
+    s["inner_filter"]["skip_reason"] = "no absorbance measured; samples diluted"
+    s["project"]["already_done"] = ["inner_filter"]
+    with pytest.raises(SettingsError, match="only one"):
+        pipeline.correct_until_raman(raw, s)
+    s["project"]["already_done"] = []
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        after = pipeline.correct_until_raman(raw, s)
+        cor = pipeline.finish_corrections(after, s)
+        idx = pipeline.compute_indices(after, s)
+    names = [h["step"] for h in get_history(after)]
+    assert "skip_inner_filter" in names and "correct_inner_filter" not in names
+    assert names.index("skip_inner_filter") < names.index("subtract_blank")
+    assert not after["ife_corrected"].any() and "ife_factor" not in after
+    assert set(idx.columns) >= {"FI", "HIX", "BIX"}
+
+    out = Path(s["project"]["output_dir"])
+    pipeline.export_results(out, s, corrected=cor, indices=idx, figures=False)
+    assert "no absorbance measured; samples diluted" in \
+        (out / "processing_record.json").read_text(encoding="utf-8")
+    back = pipeline.load_settings(out / "settings.toml")
+    assert back["inner_filter"]["apply"] is False
+    assert back["inner_filter"]["skip_reason"] == "no absorbance measured; samples diluted"
 
 
 def test_spectral_correction_from_settings(data_root, tmp_path):

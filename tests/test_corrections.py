@@ -119,6 +119,29 @@ def test_inner_filter_missing_absorbance():
     assert not bool(out["ife_corrected"].sel(sample="s0"))
 
 
+def test_skip_inner_filter_records_the_reason():
+    ds = make_ds().drop_vars(["absorbance", "blank_absorbance", "wavelength"])
+    with pytest.raises(CorrectionError, match="reason"):
+        C.skip_inner_filter(ds, reason="  ")
+    out = C.skip_inner_filter(ds, reason="no absorbance; diluted")
+    xr.testing.assert_identical(out["intensity"], ds["intensity"])  # nothing computed
+    assert not out["ife_corrected"].any()
+    entry = get_history(out)[-1]
+    assert entry["step"] == "skip_inner_filter"
+    assert entry["params"]["reason"] == "no absorbance; diluted"
+    assert entry["params"]["n_with_absorbance"] == 0
+    # the rest of the chain runs; neither the skip nor the correction can follow it
+    later = C.normalize_raman(C.subtract_blank(out), ex=350, em_range=(381, 426))
+    assert steps(later)[-3:] == ["skip_inner_filter", "subtract_blank", "normalize_raman"]
+    with pytest.raises(CorrectionError, match="already"):
+        C.skip_inner_filter(out, reason="again")
+    with pytest.raises(CorrectionError, match="skip_inner_filter"):
+        C.correct_inner_filter(C.subtract_absorbance_blank(C.skip_inner_filter(
+            make_ds(), reason="r")), absorbance_path_length_cm=1, fluorescence_path_length_cm=1)
+    with pytest.raises(CorrectionError, match="before subtract_blank"):
+        C.skip_inner_filter(C.subtract_blank(ds), reason="r")
+
+
 # --- Raman ---------------------------------------------------------------------
 
 def test_raman_area_exact_for_piecewise_linear_and_off_grid_limits():

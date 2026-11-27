@@ -267,6 +267,41 @@ def test_instrument_box(qtbot, window, dialogs, tmp_path):
     assert tab.instrument.currentData() == "fluoromax"
 
 
+def test_inner_filter_not_corrected(qtbot, window, dialogs, tmp_path):
+    """Without absorbance spectra the box is unticked and the reason given."""
+    w, p, tab = window, window.project, window.corrections_tab
+    data = make_project(tmp_path)
+    p.set_path_setting("data_root", data)
+    p.set_path_setting("pairing", tmp_path / "pairing.csv")
+    p.set_path_setting("output_dir", tmp_path / "results")
+    p.changed.emit("settings")
+    w.project_tab.scan()
+    _idle(qtbot, w)
+    w.project_tab.suggest()
+    w.project_tab.pairing_view.selectAll()
+    w.project_tab.set_include(True)
+    p.pairing[["abs_file", "abs_blank_file"]] = ""
+    w.project_tab.load_data()
+    _idle(qtbot, w)
+    assert "absorbance" not in p.raw
+
+    assert tab.ife_apply.isChecked() and not tab.ife_reason.isEnabled()
+    tab.ife_apply.setChecked(False)
+    assert not tab.l_fl.isEnabled() and tab.ife_reason.isEnabled()
+    tab.apply()  # no reason: refused
+    assert dialogs[-1][0] == "information" and "why" in dialogs[-1][1]
+    assert p.corrected is None
+    tab.ife_reason.setText("no absorbance measured")
+    tab.apply()
+    _idle(qtbot, w)
+    assert p.corrected is not None and not p.corrected["ife_corrected"].any()
+    assert p.settings["inner_filter"]["apply"] is False
+    assert p.settings["inner_filter"]["skip_reason"] == "no absorbance measured"
+    assert "Inner filter not corrected" in tab.summary.text()
+    tab.load_settings()  # the form shows what the project says
+    assert not tab.ife_apply.isChecked() and tab.ife_reason.text() == "no absorbance measured"
+
+
 def test_output_inside_data_folder_is_refused(window, tmp_path):
     p = window.project
     p.set_path_setting("data_root", tmp_path / "data")

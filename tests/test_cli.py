@@ -44,6 +44,25 @@ def test_check_lists_missing_settings(project, capsys):
     assert "inner_filter.absorbance_path_length_cm is not set" in capsys.readouterr().out
 
 
+def test_check_without_inner_filter_correction(project, capsys):
+    s = pipeline.load_settings(project)
+    s["inner_filter"].update(apply=False, absorbance_path_length_cm=None,
+                             fluorescence_path_length_cm=None)
+    pipeline.save_settings(s, project)
+    assert main(["check", str(project)]) == 1
+    out = capsys.readouterr().out
+    assert "skip_reason" in out
+    assert "absorbance_path_length_cm is not set" in out  # absorbance files are still paired
+    assert "fluorescence_path_length_cm" not in out
+    table = pd.read_csv(project.parent / "pairing.csv", dtype=str, keep_default_na=False)
+    table[["abs_file", "abs_blank_file"]] = ""
+    table.to_csv(project.parent / "pairing.csv", index=False)
+    s["inner_filter"]["skip_reason"] = "no absorbance measured"
+    pipeline.save_settings(s, project)
+    assert main(["check", str(project)]) == 0
+    assert "inner filter: not corrected (no absorbance measured)" in capsys.readouterr().out
+
+
 def test_run_writes_the_results_next_to_the_project(project, capsys):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

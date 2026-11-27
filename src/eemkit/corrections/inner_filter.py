@@ -31,6 +31,8 @@ from eemkit.corrections._common import (
 from eemkit.errors import CorrectionError, EEMKitWarning
 
 KOTHAWALA_MAX_A254 = 1.5
+#: History step written when the correction is deliberately not applied.
+SKIP_STEP = "skip_inner_filter"
 
 
 def correct_inner_filter(
@@ -65,6 +67,7 @@ def correct_inner_filter(
     step = "correct_inner_filter"
     require_vars(ds, "intensity", "absorbance", step=step)
     require_not_done(ds, step)
+    require_not_done(ds, SKIP_STEP)
     # The water Raman signal inside the sample is attenuated like the DOM
     # fluorescence, so IFE must be corrected before the blank is subtracted.
     for later in ("subtract_blank", "normalize_raman", "remove_scatter"):
@@ -108,6 +111,35 @@ def correct_inner_filter(
         fluorescence_path_length_cm=fluorescence_path_length_cm, missing=missing,
         n_corrected=int(ok.sum()), max_factor=float(factor.max()),
     )
+
+
+def skip_inner_filter(ds: xr.Dataset, *, reason: str) -> xr.Dataset:
+    """Record that the inner-filter correction is not applied, and why.
+
+    For data without absorbance spectra, e.g. from a fluorometer used on its
+    own. The intensities are not changed: the step only writes a history entry
+    with ``reason`` (so the processing record says the correction is missing),
+    sets ``ife_corrected`` to False for every sample and prevents a later
+    :func:`correct_inner_filter`. Without the correction, fluorescence is
+    underestimated where the sample absorbs; it is commonly neglected only for
+    samples of low absorbance or diluted to it (Kothawala et al. 2013), which
+    is what ``reason`` should state.
+    """
+    step = SKIP_STEP
+    require_vars(ds, "intensity", step=step)
+    require_not_done(ds, step)
+    require_not_done(ds, "correct_inner_filter")
+    for later in ("subtract_blank", "normalize_raman", "remove_scatter"):
+        require_not_after(ds, step, later, allow_instrument=later == "subtract_blank")
+    reason = str(reason or "").strip()
+    if not reason:
+        raise CorrectionError(f"{step}: give the reason why the inner-filter correction is not "
+                              "applied (it is written in the processing record)")
+    flags = xr.DataArray(np.zeros(ds.sizes[SAMPLE_DIM], dtype=bool), dims=SAMPLE_DIM)
+    out = ds.assign_coords(ife_corrected=flags)
+    n_abs = int(has_data(ds["absorbance"]).sum()) if "absorbance" in ds else 0
+    return with_history(out, step, reason=reason, n_samples=int(ds.sizes[SAMPLE_DIM]),
+                        n_with_absorbance=n_abs)
 
 
 def _at(a: xr.DataArray, wavelengths: xr.DataArray) -> xr.DataArray:

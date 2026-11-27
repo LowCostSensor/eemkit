@@ -81,6 +81,7 @@ def check(args: argparse.Namespace) -> int:
     settings, base = _project(args.project)
     problems: list[str] = []
     notes: list[str] = []
+    table = None
     proj = settings["project"]
     for key in ("data_root", "pairing"):
         if not proj.get(key):
@@ -106,7 +107,19 @@ def check(args: argparse.Namespace) -> int:
                 notes.append(f"pairing table: {len(table)} rows, {n_in} included")
                 if n_in == 0:
                     problems.append("no row of the pairing table is included")
-    for key in ("absorbance_path_length_cm", "fluorescence_path_length_cm"):
+    try:
+        skip = pipeline.inner_filter_skip_reason(settings)
+    except EEMKitError as e:
+        problems.append(str(e))
+        skip = ""
+    keys = ["absorbance_path_length_cm", "fluorescence_path_length_cm"]
+    if skip is not None:
+        if skip:
+            notes.append(f"inner filter: not corrected ({skip})")
+        paired_abs = table is not None and bool((table.loc[table["include"], "abs_file"]
+                                                 != "").any())
+        keys = ["absorbance_path_length_cm"] if paired_abs else []
+    for key in keys:
         if settings["inner_filter"].get(key) in (None, ""):
             problems.append(f"inner_filter.{key} is not set (it depends on your cuvettes)")
     try:
