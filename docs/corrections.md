@@ -13,6 +13,7 @@ always passed explicitly.
 | 2 | `subtract_absorbance_blank` | `absorbance - blank_absorbance` | |
 | 2b | `match_absorbance_dilution` | diluted samples only: absorbance rescaled to the EEM's dilution | Beer–Lambert |
 | 3 | `correct_inner_filter` | `F * 10**((A_ex + A_em) / 2)`, path lengths required | Kothawala et al. 2013; Lakowicz 2006 |
+| 3* | `skip_inner_filter` | no absorbance spectra: nothing computed, the reason recorded ([below](#without-absorbance-spectra)) | |
 | 4 | `subtract_blank` | `intensity - blank_intensity` | |
 | 5 | `normalize_raman` | divides by the blank's water Raman area | Lawaetz & Stedmon 2009 |
 | 5b | `correct_dilution` | diluted samples only: `intensity * dilution_factor` | staRdom `eem_dilution` |
@@ -31,6 +32,32 @@ Why this order:
 Samples lacking an input (blank, absorbance) make a correction fail unless
 `missing="keep"` (leave them uncorrected, flagged in a coordinate) or
 `missing="drop"` is passed.
+
+## Without absorbance spectra
+
+A fluorometer used on its own (a Cary Eclipse without a UV-Vis
+spectrophotometer, for example) gives no absorbance, so the inner filter
+cannot be corrected. eemkit does not skip the step silently:
+`skip_inner_filter(ds, reason=...)` takes its place in the order, changes
+nothing and records the reason in the history (and so in
+`processing_record.json` and the report); `ife_corrected` is False for every
+sample. In a project file:
+
+```toml
+[inner_filter]
+apply = false
+skip_reason = "no absorbance measured; samples diluted to A254 < 0.05"
+```
+
+The fluorescence path length is then not needed; the absorbance one is
+still needed if absorbance files are paired (for the CDOM metrics).
+Uncorrected fluorescence is too low where the sample absorbs, and more so
+for the most concentrated samples, which can distort PARAFAC scores and
+components. The correction is commonly left out only for samples of low
+absorbance or diluted to it (Kothawala et al. 2013); the reason should say
+which. The pairing table still pairs each EEM with its water blank, needed
+for the blank subtraction and the Raman units; the absorbance columns stay
+empty.
 
 ## Spectral correction
 

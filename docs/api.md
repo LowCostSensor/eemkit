@@ -46,6 +46,7 @@
         - subtract_absorbance_blank
         - match_absorbance_dilution
         - correct_inner_filter
+        - skip_inner_filter
         - subtract_blank
         - normalize_raman
         - correct_dilution

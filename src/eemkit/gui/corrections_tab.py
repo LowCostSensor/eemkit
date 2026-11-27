@@ -67,11 +67,24 @@ class CorrectionsTab(QWidget):
 
         self.l_abs = OptionalFloat(required=True, placeholder="required, e.g. 1")
         self.l_fl = OptionalFloat(required=True, placeholder="required, e.g. 1")
+        self.ife_apply = QCheckBox("Correct with the absorbance spectra")
+        self.ife_apply.setChecked(True)
+        self.ife_reason = QLineEdit()
+        self.ife_reason.setPlaceholderText("required, e.g. no absorbance; samples diluted "
+                                           "to A254 < 0.05")
+        self.ife_apply.toggled.connect(self._ife_toggled)
         g_ife = QGroupBox("Inner filter (Kothawala et al. 2013)")
         f = QFormLayout(g_ife)
+        f.addRow(self.ife_apply)
         f.addRow("Absorbance cuvette (cm)", self.l_abs)
         f.addRow("Fluorescence cuvette (cm)", self.l_fl)
-        f.addRow(note("Path lengths depend on your cuvettes and have no default."))
+        f.addRow("Why not corrected", self.ife_reason)
+        f.addRow(note("Path lengths depend on your cuvettes and have no default. Without "
+                      "absorbance spectra (e.g. a fluorometer used alone), untick the box and "
+                      "give the reason: it is written in the processing record. Uncorrected "
+                      "fluorescence is too low where the sample absorbs, so this suits only "
+                      "samples of low absorbance."))
+        self._ife_toggled(True)
 
         r = s["raman"]
         self.r_ex = spin(r["ex"], 200, 600, 1, 0, " nm")
@@ -168,6 +181,9 @@ class CorrectionsTab(QWidget):
         self.convention.setCurrentText(CONVENTIONS[s["spectral"].get("convention", "multiply")])
         self.l_abs.set_value(s["inner_filter"].get("absorbance_path_length_cm"))
         self.l_fl.set_value(s["inner_filter"].get("fluorescence_path_length_cm"))
+        self.ife_reason.setText(str(s["inner_filter"].get("skip_reason") or ""))
+        self.ife_apply.setChecked(s["inner_filter"].get("apply", True) is not False)
+        self._ife_toggled(self.ife_apply.isChecked())
         r = s["raman"]
         self.r_ex.setValue(float(r["ex"]))
         self.r_lo.setValue(float(r["em_range"][0]))
@@ -185,10 +201,29 @@ class CorrectionsTab(QWidget):
             w.set_value(s["crop"].get(k))
         self.missing.setCurrentText(s["missing"]["policy"])
 
+    def _ife_toggled(self, apply: bool) -> None:
+        """Path lengths are required only with the correction; the reason only without it."""
+        self.l_fl.setEnabled(apply)
+        self.ife_reason.setEnabled(not apply)
+        for w, required in ((self.l_abs, apply), (self.l_fl, apply)):
+            w.required = required
+            w._validate()
+
     def store_settings(self) -> bool:
-        if not (self.l_abs.is_valid() and self.l_fl.is_valid()):
+        apply = self.ife_apply.isChecked()
+        reason = self.ife_reason.text().strip()
+        if apply and not (self.l_abs.is_valid() and self.l_fl.is_valid()):
             QMessageBox.information(self, "eemkit", "Enter both cuvette path lengths (cm). "
                                     "They depend on your measurement and have no default.")
+            return False
+        if not apply and not reason:
+            QMessageBox.information(self, "eemkit", "Say why the inner filter is not "
+                                    "corrected; the reason is written in the processing "
+                                    "record.")
+            return False
+        if not self.l_abs.is_valid():
+            QMessageBox.information(self, "eemkit", "The absorbance cuvette path length is "
+                                    "not a number.")
             return False
         files = {k: e.text() for k, e in self.factor_files.items()}
         if bool(files["ex_factors"]) != bool(files["em_factors"]):
@@ -200,7 +235,8 @@ class CorrectionsTab(QWidget):
         sections = {
             "spectral": {**{k: self.project.relative(v) for k, v in files.items()},
                          "convention": convention},
-            "inner_filter": {"absorbance_path_length_cm": self.l_abs.value(),
+            "inner_filter": {"apply": apply, "skip_reason": "" if apply else reason,
+                             "absorbance_path_length_cm": self.l_abs.value(),
                              "fluorescence_path_length_cm": self.l_fl.value()},
             "raman": {"ex": self.r_ex.value(), "em_range": [self.r_lo.value(), self.r_hi.value()],
                       "baseline": self.r_base.isChecked()},
@@ -289,11 +325,15 @@ class CorrectionsTab(QWidget):
             lines.append(f"{p.raw.sizes['sample']} samples loaded. Spectral correction: "
                          f"{C.spectral_correction_status(done)}.")
         if p.corrected is not None:
-            ife = p.corrected["ife_factor"]
+            if "ife_factor" in p.corrected:
+                ife = p.corrected["ife_factor"]
+                ife_text = (f"Inner-filter factor over all cells: median "
+                            f"{float(ife.median()):.3f}, max {float(ife.max()):.3f}.")
+            else:
+                ife_text = "Inner filter not corrected."
             ra = p.corrected["raman_area"].values
             miss = float(np.isnan(p.corrected["intensity"]).mean()) * 100
-            lines.append(f"Inner-filter factor over all cells: median {float(ife.median()):.3f}, "
-                         f"max {float(ife.max()):.3f}. Raman area of the blanks: "
+            lines.append(f"{ife_text} Raman area of the blanks: "
                          f"{np.nanmin(ra):.4g}-{np.nanmax(ra):.4g} (CV "
                          f"{np.nanstd(ra) / np.nanmean(ra) * 100:.1f} %). Corrected grid: ex "
                          f"{p.corrected.ex.min().item():g}-{p.corrected.ex.max().item():g}, em "

@@ -71,8 +71,10 @@ DEFAULTS: dict = {
     # Instrument-specific factor files (wavelength, factor); empty = not applied.
     # convention: "multiply" (correction factors) or "divide" (response spectra).
     "spectral": {"ex_factors": "", "em_factors": "", "convention": "multiply"},
-    # Kothawala et al. (2013): absorbance-based inner-filter correction
-    "inner_filter": {"absorbance_path_length_cm": None, "fluorescence_path_length_cm": None},
+    # Kothawala et al. (2013): absorbance-based inner-filter correction. apply = false (no
+    # absorbance spectra) needs skip_reason, written in the processing record.
+    "inner_filter": {"apply": True, "skip_reason": "",
+                     "absorbance_path_length_cm": None, "fluorescence_path_length_cm": None},
     # Lawaetz & Stedmon (2009): Raman area of the blank at ex 350, em 381-426 nm
     "raman": {"ex": 350.0, "em_range": [381.0, 426.0], "baseline": False},
     # Band widths (below, above) in nm. 10 nm is the eemR/staRdom default width;
@@ -225,10 +227,31 @@ def reader_options(settings: dict) -> dict:
     return {}
 
 
+def inner_filter_skip_reason(settings: dict) -> str | None:
+    """``None`` if the inner-filter correction is applied, else the reason it is not.
+
+    Raises :class:`~eemkit.errors.SettingsError` when ``inner_filter.apply`` is
+    false without a ``skip_reason``: the correction is never left out silently.
+    """
+    s = settings.get("inner_filter", {})
+    apply = s.get("apply", True)
+    if not isinstance(apply, bool):
+        raise SettingsError(f"inner_filter.apply must be true or false, got {apply!r}")
+    if apply:
+        return None
+    reason = str(s.get("skip_reason") or "").strip()
+    if not reason:
+        raise SettingsError("inner_filter.apply is false: say why in inner_filter.skip_reason "
+                            "(e.g. 'no absorbance measured; samples diluted to A254 < 0.05'); "
+                            "it is written in the processing record")
+    return reason
+
+
 def correct_until_raman(ds: xr.Dataset, settings: dict,
                         base: str | Path | None = None) -> xr.Dataset:
     """Spectral correction (if factor files are set), absorbance blank, inner
-    filter, EEM blank and Raman units; then dilution (when the pairing table
+    filter (or, with ``inner_filter.apply = false``, a history entry with the
+    reason it is not applied), EEM blank and Raman units; then dilution (when the pairing table
     has dilution columns) and the regions of ``zap.regions``. Factor files are
     relative to ``base``. Steps listed in ``project.already_done`` were done by
     the instrument software: they are recorded, not repeated, and must agree
@@ -236,9 +259,14 @@ def correct_until_raman(ds: xr.Dataset, settings: dict,
     done = list(settings["project"].get("already_done") or [])
     check_declared(ds, done)
     has_abs = "absorbance" in ds
-    if "inner_filter" not in done or has_abs:
+    skip_reason = inner_filter_skip_reason(settings)
+    correct_ife = "inner_filter" not in done and skip_reason is None
+    if skip_reason is not None and "inner_filter" in done:
+        raise SettingsError("inner_filter.apply is false, but project.already_done says the "
+                            "instrument software corrected the inner filter: keep only one")
+    if correct_ife or has_abs:
         l_abs = _required(settings, "inner_filter", "absorbance_path_length_cm")
-    if "inner_filter" not in done:
+    if correct_ife:
         l_fl = _required(settings, "inner_filter", "fluorescence_path_length_cm")
     missing = settings["missing"]["policy"]
     sp = settings["spectral"]
@@ -258,6 +286,8 @@ def correct_until_raman(ds: xr.Dataset, settings: dict,
             ds = C.match_absorbance_dilution(ds)
     if "inner_filter" in done:
         ds = mark_done(ds, "inner_filter")
+    elif skip_reason is not None:
+        ds = C.skip_inner_filter(ds, reason=skip_reason)
     else:
         if "blank" in done:
             warnings.warn("the instrument subtracted the blank before eemkit's inner-filter "

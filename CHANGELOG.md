@@ -3,6 +3,20 @@
 All notable changes are listed here. Versions follow
 [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+* **Data without absorbance spectra.** A fluorometer used on its own (e.g. a
+  Cary Eclipse without a UV-Vis spectrophotometer) gives no absorbance, and
+  until now the inner-filter step stopped the corrections. With
+  `inner_filter.apply = false` and a `skip_reason`, or in the application by
+  unticking `Correct with the absorbance spectra` and saying why, the step is
+  left out and the reason is recorded in the processing history, the
+  processing record and the report (new function
+  `corrections.skip_inner_filter`). A reason is required: the correction is
+  never left out silently. The fluorescence path length is then not needed.
+  `eemkit check` reports the choice. Projects that correct the inner filter
+  do not change.
+
 ## 0.5.0 (2026-11-26)
 
 The application for macOS and Linux, and a logo. Results do not change.

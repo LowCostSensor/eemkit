@@ -140,7 +140,7 @@ Parameters on the left, preview on the right. The order of the steps is fixed: i
 | Box | Contents | Ombrone |
 | --- | --- | --- |
 | `Instrument spectral correction` | Excitation and emission correction factor files of the instrument (optional, see [below](#instrument-spectral-correction)). Empty = not applied. | not applied |
-| `Inner filter` | Path length of the two cuvettes in cm. **Required**, with no default: while they are empty (red) the corrections do not run. Kothawala et al. 2013. | 1 and 1 |
+| `Inner filter` | Path length of the two cuvettes in cm. **Required**, with no default: while they are empty (red) the corrections do not run. Kothawala et al. 2013. Without absorbance spectra, untick `Correct with the absorbance spectra` and say why in `Why not corrected`: the reason is written in the processing record (see [Corrections](corrections.md#without-absorbance-spectra)). | 1 and 1 |
 | `Raman units` | Excitation and emission range of the Raman area of the blank; optional baseline subtraction. Lawaetz & Stedmon 2009. | Ex 350, Em 381–426, no |
 | `Scatter removal` | Water Raman shift and width (below/above, in nm) of the four bands: first- and second-order Rayleigh and Raman. `Zeros below Rayleigh` sets to zero the region where emission is below excitation minus the offset (Thygesen et al. 2004). `Interpolate removed bands`: `no` keeps the bands as missing data, as PARAFAC needs; `em`, `ex` or `both` interpolate them. | 3400 cm⁻¹; 10/10, 8/8, 12/12, 10/10; zeros at 10 nm; no |
 | `Crop` | Excitation and emission limits to keep. Empty = no limit. | Ex ≥ 240 |
