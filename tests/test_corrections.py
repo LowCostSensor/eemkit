@@ -124,7 +124,8 @@ def test_skip_inner_filter_records_the_reason():
     with pytest.raises(CorrectionError, match="reason"):
         C.skip_inner_filter(ds, reason="  ")
     out = C.skip_inner_filter(ds, reason="no absorbance; diluted")
-    xr.testing.assert_identical(out["intensity"], ds["intensity"])  # nothing computed
+    # nothing computed: only the ife_corrected flag is added
+    xr.testing.assert_identical(out["intensity"].drop_vars("ife_corrected"), ds["intensity"])
     assert not out["ife_corrected"].any()
     entry = get_history(out)[-1]
     assert entry["step"] == "skip_inner_filter"
